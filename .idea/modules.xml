@@ -3,6 +3,9 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/carpark-iot-system.iml" filepath="$PROJECT_DIR$/.idea/carpark-iot-system.iml" />
+      <module fileurl="file://$PROJECT_DIR$/src/backend/.idea/backend.iml" filepath="$PROJECT_DIR$/src/backend/.idea/backend.iml" />
+      <module fileurl="file://$PROJECT_DIR$/src/frontend/.idea/frontend.iml" filepath="$PROJECT_DIR$/src/frontend/.idea/frontend.iml" />
+      <module fileurl="file://$PROJECT_DIR$/src/smartgate/.idea/smartgate.iml" filepath="$PROJECT_DIR$/src/gate/.idea/smartgate.iml" />
     </modules>
   </component>
 </project>

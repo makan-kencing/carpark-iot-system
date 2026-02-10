@@ -1,0 +1,21 @@
+[project]
+name = "carpark-iot-backend"
+version = "0.1.0"
+description = ""
+requires-python = ">=3.14"
+dependencies = [
+    "carpark-iot-core",
+    "carpark-iot-api"
+]
+license = { text = "MIT License" }
+readme = "README.md"
+
+[tool.uv.sources]
+carpark-iot-core = { workspace = true }
+carpark-iot-api = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "core",
+    "api"
+]
