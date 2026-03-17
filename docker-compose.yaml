@@ -21,7 +21,13 @@ services:
       TZ: ${TZ}
       MQTT_HOST: mqtt://zigbee2mqtt
     depends_on:
-      - zigbee2mqtt
+      - mqtt
+  mqtt:
+    container_name: mqtt
+    image: eclipse-mosquitto:alpine
+    volumes:
+      - ./var/mosquitto:/mosquitto
+    command: "mosquitto -c /mosquitto-no-auth.conf"
   zigbee2mqtt:
     container_name: zigbee2mqtt
     image: ghcr.io/koenkk/zigbee2mqtt
@@ -36,6 +42,8 @@ services:
       - ${ZIGBEE_DEV}:/dev/ttyACM0
     group_add:
       - dialout
+    depends_on:
+      - mqtt
   homeassistant:
     container_name: homeassistant
     image: ghcr.io/home-assistant/home-assistant:stable
@@ -50,6 +58,7 @@ services:
       - ${ZIGBEE_DEV}:/dev/ttyACM0
     privileged: true
     depends_on:
+      - mqtt
       - zigbee2mqtt
   grafana:
     container_name: grafana

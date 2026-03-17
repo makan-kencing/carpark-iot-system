@@ -6,7 +6,7 @@ serial:
     adapter: ember
     rtscts: false
 mqtt:
-    server: mqtt://localhost
+    server: mqtt://mqtt
     base_topic: zigbee2mqtt
 advanced:
     channel: 11
