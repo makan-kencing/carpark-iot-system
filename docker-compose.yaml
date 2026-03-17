@@ -1,0 +1,23 @@
+services:
+  api:
+    container_name: carpark-iot
+    build: src/backend
+    environment:
+      TZ: ${TZ}
+      MQTT_HOST: mqtt://zigbee2mqtt
+  zigbee2mqtt:
+    container_name: zigbee2mqtt
+    image: ghcr.io/koenkk/zigbee2mqtt
+    volumes:
+      - ./var/z2m:/app/data
+      - ./config/z2m:/app/data/configuration.yaml
+      - /run/udev:/run/udev:ro
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: ${TZ}
+      Z2M_ONBOARD_NO_SERVER: 1
+    devices:
+      - ${ZIGBEE_DEV}:/dev/ttyACM0
+    group_add:
+      - dialout
