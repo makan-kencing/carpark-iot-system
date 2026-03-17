@@ -1,0 +1,25 @@
+*.{$HOSTNAME} {
+    @z2m host z2m.{$HOSTNAME}
+    handle @z2m {
+        reverse_proxy zigbee2mqtt:8080
+    }
+
+    @grafana host grafana.{$HOSTNAME}
+    handle @grafana {
+        reverse_proxy grafana:3000
+    }
+
+    @ha host ha.{$HOSTNAME}
+    handle @ha {
+        reverse_proxy homeassistant:8123
+    }
+
+    @app host {$HOSTNAME}
+    handle @app {
+        reverse_proxy carpark-iot:8080
+    }
+
+    handle {
+        abort
+    }
+}
