@@ -14,14 +14,14 @@ services:
     environment:
       TZ: ${TZ}
       HOSTNAME: ${HOSTNAME}
-  api:
-    container_name: carpark-iot
-    build: src/backend
-    environment:
-      TZ: ${TZ}
-      MQTT_HOST: mqtt://zigbee2mqtt
-    depends_on:
-      - mqtt
+#  api:
+#    container_name: carpark-iot
+#    build: src/backend
+#    environment:
+#      TZ: ${TZ}
+#      MQTT_HOST: mqtt://zigbee2mqtt
+#    depends_on:
+#      - mqtt
   mqtt:
     container_name: mqtt
     image: eclipse-mosquitto:alpine
@@ -31,9 +31,10 @@ services:
   zigbee2mqtt:
     container_name: zigbee2mqtt
     image: ghcr.io/koenkk/zigbee2mqtt
+    user: "0"
     volumes:
       - ./var/z2m:/app/data
-      - ./config/z2m:/app/data/configuration.yaml
+      - ./config/z2m/configuration.yaml:/app/data/configuration.yaml
       - /run/udev:/run/udev:ro
     environment:
       TZ: ${TZ}
