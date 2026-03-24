@@ -19,6 +19,8 @@
 #include "ha/esp_zigbee_ha_standard.h"
 #include "zcl_utility.h"
 #include "main.h"
+#include "driver/ledc.h"
+#include "esp_err.h"
 
 #if !defined ZB_ED_ROLE
 #error Define ZB_ED_ROLE in idf.py menuconfig to compile light (End Device) source code.
@@ -142,6 +144,47 @@ static void esp_zb_task(void *pvParameters) {
     esp_zb_stack_main_loop();
 }
 
+static uint32_t servo_angle_to_duty(uint32_t angle) {
+    if (angle > SERVO_MAX_DEGREE) {
+        angle = SERVO_MAX_DEGREE;
+    }
+    uint32_t pulse_width = SERVO_MIN_PULSEWIDTH_US +
+        ((SERVO_MAX_PULSEWIDTH_US - SERVO_MIN_PULSEWIDTH_US) * angle) / SERVO_MAX_DEGREE;
+    return (pulse_width * 8191) / SERVO_PERIOD_US;
+}
+
+void init_servo(void) {
+    ledc_timer_config_t ledc_timer = {
+        .speed_mode       = LEDC_MODE,
+        .timer_num        = LEDC_TIMER,
+        .duty_resolution  = LEDC_DUTY_RES,
+        .freq_hz          = LEDC_FREQUENCY,
+        .clk_cfg          = LEDC_AUTO_CLK
+    };
+    ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
+
+    ledc_channel_config_t ledc_channel = {
+        .speed_mode     = LEDC_MODE,
+        .channel        = LEDC_CHANNEL,
+        .timer_sel      = LEDC_TIMER,
+        .intr_type      = LEDC_INTR_DISABLE,
+        .gpio_num       = SERVO_GPIO,
+        .duty           = servo_angle_to_duty(GATE_CLOSED_ANGLE), // Gate starts closed
+        .hpoint         = 0
+    };
+    ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
+}
+
+void open_gate(void) {
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, servo_angle_to_duty(GATE_OPEN_ANGLE)));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
+}
+
+void close_gate(void) {
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, servo_angle_to_duty(GATE_CLOSED_ANGLE)));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
+}
+
 void app_main(void) {
     esp_zb_platform_config_t config = {
         .radio_config = ESP_ZB_DEFAULT_RADIO_CONFIG(),
@@ -149,5 +192,19 @@ void app_main(void) {
     };
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_zb_platform_config(&config));
+
+    init_servo();
+
     xTaskCreate(esp_zb_task, "Zigbee_main", 4096, NULL, 5, NULL);
+
+    // test servo
+    while(1) {
+        ESP_LOGI(TAG, "Opening Gate (90 degrees)...");
+        open_gate();
+        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        ESP_LOGI(TAG, "Closing Gate (0 degrees)...");
+        close_gate();
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 }

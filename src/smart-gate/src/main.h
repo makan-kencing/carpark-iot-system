@@ -24,6 +24,22 @@
 #define ESP_MANUFACTURER_NAME "\x09""ESPRESSIF"      /* Customized manufacturer name */
 #define ESP_MODEL_IDENTIFIER "\x07"CONFIG_IDF_TARGET /* Customized model identifier */
 
+/* Servo Gate Configuration */
+#define SERVO_GPIO               3     /* ESP32-C6 safe GPIO */
+#define SERVO_MIN_PULSEWIDTH_US  500   /* 0 degrees pulse width */
+#define SERVO_MAX_PULSEWIDTH_US  2500  /* 180 degrees pulse width */
+#define SERVO_MAX_DEGREE         180   /* Max physical angle */
+#define SERVO_PERIOD_US          20000 /* 50Hz frequency (20ms) */
+
+#define LEDC_TIMER               LEDC_TIMER_0
+#define LEDC_MODE                LEDC_LOW_SPEED_MODE
+#define LEDC_CHANNEL             LEDC_CHANNEL_0
+#define LEDC_DUTY_RES            LEDC_TIMER_13_BIT
+#define LEDC_FREQUENCY           50
+
+#define GATE_OPEN_ANGLE          90 /* Angle for Open gate */
+#define GATE_CLOSED_ANGLE        0  /* Angle for Closed gate */
+
 #define ESP_ZB_ZED_CONFIG()                                         \
     {                                                               \
         .esp_zb_role = ESP_ZB_DEVICE_TYPE_ED,                       \
