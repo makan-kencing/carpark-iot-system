@@ -21,6 +21,8 @@
 #include "main.h"
 #include "driver/ledc.h"
 #include "esp_err.h"
+#include "driver/i2c.h"
+#include <string.h>
 
 #if !defined ZB_ED_ROLE
 #error Define ZB_ED_ROLE in idf.py menuconfig to compile light (End Device) source code.
@@ -185,7 +187,107 @@ void close_gate(void) {
     ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
 }
 
+esp_err_t i2c_master_init(void) {
+    i2c_config_t conf = {
+        .mode = I2C_MODE_MASTER,
+        .sda_io_num = I2C_MASTER_SDA_IO,
+        .scl_io_num = I2C_MASTER_SCL_IO,
+        .sda_pullup_en = GPIO_PULLUP_ENABLE,
+        .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .master.clk_speed = I2C_MASTER_FREQ_HZ,
+    };
+    i2c_param_config(I2C_MASTER_NUM, &conf);
+    return i2c_driver_install(I2C_MASTER_NUM, conf.mode, I2C_MASTER_TX_BUF_DISABLE, I2C_MASTER_RX_BUF_DISABLE, 0);
+}
+
+void lcd_send_cmd(char cmd) {
+    char data_u = (cmd & 0xf0), data_l = ((cmd << 4) & 0xf0);
+    uint8_t data_t[4] = { data_u | 0x0C, data_u | 0x08, data_l | 0x0C, data_l | 0x08 };
+    i2c_master_write_to_device(I2C_MASTER_NUM, LCD_ADDR, data_t, 4, 1000 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(2));
+}
+
+void lcd_send_data(char data) {
+    char data_u = (data & 0xf0), data_l = ((data << 4) & 0xf0);
+    uint8_t data_t[4] = { data_u | 0x0D, data_u | 0x09, data_l | 0x0D, data_l | 0x09 };
+    i2c_master_write_to_device(I2C_MASTER_NUM, LCD_ADDR, data_t, 4, 1000 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(2)); // give lcd time to print
+}
+
+void lcd_clear(void) {
+    lcd_send_cmd(LCD_CMD_CLEAR_DISPLAY); // Clear display command
+    vTaskDelay(pdMS_TO_TICKS(10)); // Wait for the command to execute
+}
+
+void lcd_set_cursor(int row, int col) {
+    if (row == 0) lcd_send_cmd(0x80 | col);
+    if (row == 1) lcd_send_cmd(0xC0 | col);
+}
+
+void lcd_send_string(const char *str) {
+    while (*str) lcd_send_data(*str++); // Send each character of the string
+}
+
+void init_lcd(void) {
+    i2c_master_init();
+
+    // 4 bit initialization sequence
+    vTaskDelay(pdMS_TO_TICKS(50));
+    lcd_send_cmd(LCD_CMD_INIT_8_BIT_MODE);
+    vTaskDelay(pdMS_TO_TICKS(5));
+    lcd_send_cmd(LCD_CMD_INIT_8_BIT_MODE);
+    vTaskDelay(pdMS_TO_TICKS(1));
+    lcd_send_cmd(LCD_CMD_INIT_8_BIT_MODE);
+    vTaskDelay(pdMS_TO_TICKS(1));
+    lcd_send_cmd(LCD_CMD_INIT_4_BIT_MODE); // Set 4-bit mode
+    vTaskDelay(pdMS_TO_TICKS(1));
+
+    // display initialization
+    lcd_send_cmd(LCD_CMD_FUNCTION_SET); // Function set: 4-bit mode, 2-line display, 5x8 characters
+    vTaskDelay(pdMS_TO_TICKS(1));
+    lcd_send_cmd(LCD_CMD_DISPLAY_OFF); // Display off
+    vTaskDelay(pdMS_TO_TICKS(1));
+    lcd_send_cmd(LCD_CMD_CLEAR_DISPLAY); // Clear display
+    vTaskDelay(pdMS_TO_TICKS(2));
+    lcd_send_cmd(LCD_CMD_ENTRY_MODE_SET); // Entry mode set: increment cursor, no shift
+    vTaskDelay(pdMS_TO_TICKS(1));
+    lcd_send_cmd(LCD_CMD_DISPLAY_ON); // Display on, cursor off, blink off
+    vTaskDelay(pdMS_TO_TICKS(1));
+}
+
+void display_welcome_message(const char* plate) {
+    lcd_clear();
+    char buffer[17];
+
+    lcd_set_cursor(0, 4);
+    lcd_send_string("WELCOME");
+    snprintf(buffer, sizeof(buffer), "PLATE:%s", plate);
+
+    // Auto center the bottom string
+    int len = strlen(buffer);
+    int offset = (16 - len) / 2;
+    if (offset < 0) offset = 0;
+
+    lcd_set_cursor(1, offset);
+    lcd_send_string(buffer);
+}
+
+void display_payment_message(const char* plate, float price) {
+    lcd_clear();
+    char buffer[17];
+    // top
+    snprintf(buffer, sizeof(buffer), "CAR: %s", plate);
+    lcd_set_cursor(0, 0);
+    lcd_send_string(buffer);
+    // bottom
+    snprintf(buffer, sizeof(buffer), "TOTAL: RM%.2f", price);
+    lcd_set_cursor(1, 0);
+    lcd_send_string(buffer);
+}
+
 void app_main(void) {
+    vTaskDelay(pdMS_TO_TICKS(5000)); // Give PlatformIO time to open the serial monitor
+
     esp_zb_platform_config_t config = {
         .radio_config = ESP_ZB_DEFAULT_RADIO_CONFIG(),
         .host_config = ESP_ZB_DEFAULT_HOST_CONFIG(),
@@ -194,17 +296,30 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_zb_platform_config(&config));
 
     init_servo();
+    init_lcd();
 
     xTaskCreate(esp_zb_task, "Zigbee_main", 4096, NULL, 5, NULL);
 
-    // test servo
+    // Test
     while(1) {
-        ESP_LOGI(TAG, "Opening Gate (90 degrees)...");
+        ESP_LOGI(TAG, "Car Arriving...");
+        display_welcome_message("VBC12345");
         open_gate();
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(2000));
 
-        ESP_LOGI(TAG, "Closing Gate (0 degrees)...");
+        ESP_LOGI(TAG, "Gate Closing...");
+        lcd_clear();
         close_gate();
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(2000));
+
+        ESP_LOGI(TAG, "Car Leaving (Payment)...");
+        display_payment_message("VBC12345", 15.50);
+        open_gate();
+        vTaskDelay(pdMS_TO_TICKS(2000));
+
+        ESP_LOGI(TAG, "Gate Closing...");
+        lcd_clear();
+        close_gate();
+        vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
