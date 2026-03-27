@@ -1,10 +1,11 @@
+import os
 from abc import abstractmethod, ABC
 from decimal import Decimal
 from typing import override, Literal
 
 import pyrebase
 from pydantic import SecretStr, Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, TomlConfigSettingsSource, SettingsConfigDict
 from pyrebase.pyrebase import Firebase
 
 from carpark_iot_core.components.config import ParkingSpaceIndicatorConfig
@@ -84,6 +85,26 @@ class CarparkSettings(BaseSettings):
 
     free_grace_period: int = 5 * 60
     price_per_hour: Decimal = Decimal(1)
+
+    model_config = SettingsConfigDict(toml_file=os.getenv("CONFIG_PATH"))
+
+    @override
+    @classmethod
+    def settings_customise_sources(
+            cls,
+            settings_cls: type[BaseSettings],
+            init_settings: PydanticBaseSettingsSource,
+            env_settings: PydanticBaseSettingsSource,
+            dotenv_settings: PydanticBaseSettingsSource,
+            file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            file_secret_settings,
+            TomlConfigSettingsSource(settings_cls)
+        )
 
 
 __all__ = (

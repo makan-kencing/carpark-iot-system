@@ -29,15 +29,21 @@ services:
         user: "0"
         environment:
             TZ: ${TZ}
-            MQTT_HOST: mqtt://zigbee2mqtt
-            DB_HOST: db
-            DB_PORT: 5432
-            DB_NAME: postgres
-            DB_USER: ${DB_USER}
-            DB_PASSWORD: ${DB_PASSWORD}
-
+            CONFIG_PATH: /config.toml
             LD_LIBRARY_PATH: /opt/vc/lib
+
+            MQTT__HOST: mqtt://zigbee2mqtt
+            DB__HOST: db
+            DB__PORT: 5432
+            DB__NAME: postgres
+            DB__USER: ${DB_USER}
+            DB__PASSWORD: ${DB_PASSWORD}
+            FIREBASE__API_KEY: ${FIREBASE_API_KEY}
+            FIREBASE__AUTH__TYPE: email
+            FIREBASE__AUTH__EMAIL: ${FIREBASE_EMAIL}
+            FIREBASE__AUTH__PASSWORD: ${FIREBASE_PASSWORD}
         volumes:
+            - ./config/carpark:/config.toml
             - /run/udev:/run/udev:ro
             - /opt/vc:/opt/vc:ro
         devices:

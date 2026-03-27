@@ -1,0 +1,15 @@
+[indicator]
+a = 22
+b = 23
+c = 24
+d = 25
+e = 21
+f = 20
+g = 16
+dp = 12
+
+pins = [26, 19, 13, 6]
+
+red = 2
+amber = 3
+green = 4
