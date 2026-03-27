@@ -1,72 +1,100 @@
 services:
-  caddy:
-    container_name: caddy
-    image: caddy:alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./config/caddy:/etc/caddy
-      - ./var/caddy/data:/data
-      - ./var/caddy/config:/config
-    environment:
-      TZ: ${TZ}
-      HOSTNAME: ${HOSTNAME}
-#  api:
-#    container_name: carpark-iot
-#    build: src/backend
-#    environment:
-#      TZ: ${TZ}
-#      MQTT_HOST: mqtt://zigbee2mqtt
-#    depends_on:
-#      - mqtt
-  mqtt:
-    container_name: mqtt
-    image: eclipse-mosquitto:alpine
-    volumes:
-      - ./var/mosquitto:/mosquitto
-    command: "mosquitto -c /mosquitto-no-auth.conf"
-  zigbee2mqtt:
-    container_name: zigbee2mqtt
-    image: ghcr.io/koenkk/zigbee2mqtt
-    user: "0"
-    volumes:
-      - ./var/z2m:/app/data
-      - ./config/z2m/configuration.yaml:/app/data/configuration.yaml
-      - /run/udev:/run/udev:ro
-    environment:
-      TZ: ${TZ}
-      Z2M_ONBOARD_NO_SERVER: 1
-    devices:
-      - ${ZIGBEE_DEV}:/dev/ttyACM0
-    group_add:
-      - dialout
-    depends_on:
-      - mqtt
-  homeassistant:
-    container_name: homeassistant
-    image: ghcr.io/home-assistant/home-assistant:stable
-    volumes:
-      - ./var/ha:/config
-      - /etc/localtime:/etc/localtime:ro
-      - /run/dbus:/run/dbus:ro
-    environment:
-      DISABLE_JEMALLOC: true
-      TZ: ${TZ}
-    devices:
-      - ${ZIGBEE_DEV}:/dev/ttyACM0
-    privileged: true
-    depends_on:
-      - mqtt
-      - zigbee2mqtt
-  grafana:
-    container_name: grafana
-    image: grafana/grafana-enterprise
-    user: "0"
-    volumes:
-      - ./var/grafana:/var/lib/grafana
-    environment:
-      GF_SERVER_ROOT_URL: grafana.${HOSTNAME}
-      GF_PLUGINS_PREINSTALL: grafana-clock-panel
+    caddy:
+        container_name: caddy
+        image: caddy:alpine
+        restart: unless-stopped
+        ports:
+            - "80:80"
+            - "443:443"
+            - "443:443/udp"
+        volumes:
+            - ./config/caddy:/etc/caddy
+            - ./var/caddy/data:/data
+            - ./var/caddy/config:/config
+        environment:
+            TZ: ${TZ}
+            HOSTNAME: ${HOSTNAME}
+    db:
+        container_name: db
+        image: timescale/timescaledb:latest-pg18
+        volumes:
+            - ./var/pgdata:/pgdata
+        environment:
+            POSTGRES_USER: ${DB_USER}
+            POSTGRES_PASSWORD: ${DB_PASSWORD}
+            PGDATA: /pgdata
+    api:
+        container_name: carpark-iot
+        build: src/backend
+        user: "0"
+        environment:
+            TZ: ${TZ}
+            MQTT_HOST: mqtt://zigbee2mqtt
+            DB_HOST: db
+            DB_PORT: 5432
+            DB_NAME: postgres
+            DB_USER: ${DB_USER}
+            DB_PASSWORD: ${DB_PASSWORD}
+
+            LD_LIBRARY_PATH: /opt/vc/lib
+        volumes:
+            - /run/udev:/run/udev:ro
+            - /opt/vc:/opt/vc:ro
+        devices:
+            - /dev/vchiq:/dev/vchiq
+            - /dev/gpiomem:/dev/gpiomem
+            - /dev/mem:/dev/mem
+        cap_add:
+            - SYS_RAWIO
+        depends_on:
+            - mqtt
+            - z2m
+            - db
+    mqtt:
+        container_name: mqtt
+        image: eclipse-mosquitto:alpine
+        volumes:
+            - ./var/mosquitto:/mosquitto
+        command: "mosquitto -c /mosquitto-no-auth.conf"
+    z2m:
+        container_name: zigbee2mqtt
+        image: ghcr.io/koenkk/zigbee2mqtt
+        volumes:
+            - ./var/z2m:/app/data
+            - ./config/z2m/configuration.yaml:/app/data/configuration.yaml
+            - /run/udev:/run/udev:ro
+        environment:
+            TZ: ${TZ}
+            Z2M_ONBOARD_NO_SERVER: 1
+        devices:
+            - ${ZIGBEE_DEV}:/dev/ttyACM0
+        group_add:
+            - dialout
+        depends_on:
+            - mqtt
+    homeassistant:
+        container_name: homeassistant
+        image: ghcr.io/home-assistant/home-assistant:stable
+        volumes:
+            - ./var/ha:/config
+            - /etc/localtime:/etc/localtime:ro
+            - /run/dbus:/run/dbus:ro
+        environment:
+            DISABLE_JEMALLOC: true
+            TZ: ${TZ}
+        devices:
+            - ${ZIGBEE_DEV}:/dev/ttyACM0
+        group_add:
+            - dialout
+        depends_on:
+            - mqtt
+            - z2m
+    grafana:
+        container_name: grafana
+        image: grafana/grafana-enterprise
+        user: "0"
+        volumes:
+            - ./var/grafana:/var/lib/grafana
+        environment:
+            GF_SERVER_ROOT_URL: grafana.${HOSTNAME}
+            GF_PLUGINS_PREINSTALL: grafana-clock-panel

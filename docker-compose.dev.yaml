@@ -1,16 +1,19 @@
 services:
-#  api:
-#    ports:
-#      - "8080:8080"
-  mqtt:
-    ports:
-      - "1883:1883"
-  zigbee2mqtt:
-    ports:
-      - "8081:8080"
-  homeassistant:
-    ports:
-      - "8123:8123"
-  grafana:
-    ports:
-      - "3000:3000"
+    db:
+        ports:
+            - "5432:5432"
+    #  api:
+    #    ports:
+    #      - "8080:8080"
+    mqtt:
+        ports:
+            - "1883:1883"
+    z2m:
+        ports:
+            - "8081:8080"
+    homeassistant:
+        ports:
+            - "8123:8123"
+    grafana:
+        ports:
+            - "3000:3000"

@@ -5,8 +5,7 @@ description = ""
 requires-python = ">=3.14"
 dependencies = [
     "carpark-iot-core",
-    "carpark-iot-api",
-    "carpark-iot-mqtt"
+    "carpark-iot-api"
 ]
 license = { text = "MIT License" }
 readme = "README.md"
@@ -14,7 +13,6 @@ readme = "README.md"
 [tool.uv.sources]
 carpark-iot-core = { workspace = true }
 carpark-iot-api = { workspace = true }
-carpark-iot-mqtt = { workspace = true }
 
 [tool.uv.workspace]
 members = [
