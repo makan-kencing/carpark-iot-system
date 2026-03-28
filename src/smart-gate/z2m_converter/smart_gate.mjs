@@ -33,12 +33,8 @@ const smartGateExtend = {
         let commands = {
             writeDisplayText: {
                 ID: 0,
-                name:
-                    "writeDisplayText",
-                parameters:
-                    [
-                        {name: "text", type: Zcl.DataType.CHAR_STR}
-                    ]
+                name: "writeDisplayText",
+                parameters: [{name: "text", type: Zcl.DataType.CHAR_STR}]
             }
         }
 
