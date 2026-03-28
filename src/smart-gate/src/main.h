@@ -19,12 +19,21 @@
 #define INSTALLCODE_POLICY_ENABLE       false                                /* enable the install code policy for security */
 #define ED_AGING_TIMEOUT                ESP_ZB_ED_AGING_TIMEOUT_64MIN        /* aging timeout of device */
 #define ED_KEEP_ALIVE                   3000                                 /* 3000 millisecond */
-#define HA_ESP_LIGHT_ENDPOINT           10                                   /* esp light bulb device endpoint, used to process light controlling commands */
 #define ESP_ZB_PRIMARY_CHANNEL_MASK     ESP_ZB_TRANSCEIVER_ALL_CHANNELS_MASK /* Zigbee primary channel mask use in the example */
 
-/* Basic manufacturer information */
-#define ESP_MANUFACTURER_NAME "\x09""ESPRESSIF"      /* Customized manufacturer name */
-#define ESP_MODEL_IDENTIFIER "\x07"CONFIG_IDF_TARGET /* Customized model identifier */
+#define MANUFACTURER_NAME               "\x09""ESPRESSIF"
+#define MODEL_IDENTIFIER                "\x04""SGEX"
+#define APP_PROFILE_ID                  ESP_ZB_AF_HA_PROFILE_ID
+#define POWER_SOURCE                    1                                     /* 0x01     ==  External power supply                   */
+
+#define HA_ESP_ENDPOINT                 1
+#define HA_CONTROL_CLUSTER              0xfd10
+#define HA_CONTROL_GATE_ATTR            0x0000
+#define HA_CONTROL_DISPLAY_ATTR         0x0001
+#define HA_CONTROL_NFC_ATTR             0x0002
+#define HA_CONTROL_SET_DISPLAY_TEXT_CMD 0x0000
+#define HA_CONTROL_CLEAR_NFC_CMD        0x0001
+
 
 #define ESP_ZB_ZED_CONFIG()                                         \
     {                                                               \
