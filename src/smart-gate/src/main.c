@@ -151,7 +151,7 @@ static esp_err_t zb_custom_cmd_handler(const esp_zb_zcl_custom_cluster_command_m
                         message->info.status);
     ESP_LOGI(TAG, "Receive custom command: %d from address 0x%04hx", message->info.command.id, message->info.src_address.u.short_addr);
     ESP_LOGI(TAG, "Payload size: %d", message->data.size);
-    ESP_LOG_BUFFER_CHAR(TAG, (uint8_t *)message->data.value + 1, message->data.size - 1);
+    ESP_LOG_BUFFER_CHAR(TAG, (uint8_t *)message->data.value + 1, MAX(message->data.size - 1, 0));
 
     if (message->info.dst_endpoint == HA_ESP_ENDPOINT) {
         if (message->info.cluster == HA_CONTROL_CLUSTER) {
@@ -174,7 +174,7 @@ static esp_err_t zb_custom_cmd_handler(const esp_zb_zcl_custom_cluster_command_m
             else if (message->info.command.id == HA_CONTROL_CLEAR_NFC_CMD) {
                 nfc_data = NULL;
 
-                ESP_LOGI(TAG, "Cleared nfc", display_text);
+                ESP_LOGI(TAG, "Cleared NFC");
 
                 esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE, HA_CONTROL_NFC_ATTR, nfc_data, false);
                 esp_zb_zcl_report_attr_cmd_t ph_cmd_req = {
