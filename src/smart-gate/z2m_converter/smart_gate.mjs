@@ -161,3 +161,5 @@ export const definitions = [
         ]
     }
 ];
+
+export default definitions;
