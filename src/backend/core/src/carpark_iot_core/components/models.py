@@ -1,3 +1,4 @@
+import asyncio
 import threading
 from abc import ABC
 from dataclasses import dataclass
@@ -9,7 +10,7 @@ from gpiozero import LEDMultiCharDisplay, TrafficLights
 from paho.mqtt.client import Client
 from picamera2 import Picamera2, MappedArray
 
-from carpark_iot_core.components.schemas import SmartGatePayload
+from carpark_iot_core.components.schemas import SmartGateOutput
 
 alpr = ALPR(
     detector_model="yolo-v9-t-384-license-plate-end2end",
@@ -30,26 +31,44 @@ class MqttComponent(Component, ABC):
 @dataclass(slots=True)
 class SmartParkingSpace(MqttComponent):
     total: int | None = None
-    available: int | None = None
+    remaining: int | None = None
 
     @property
     def occupied(self) -> int:
-        return self.total - self.available
+        return self.total - self.remaining
 
 
 @dataclass(slots=True)
 class SmartGate(MqttComponent):
     def open(self) -> None:
         self._mqtt_client.publish(f"zigbee2mqtt/{self.id}/set",
-                                  SmartGatePayload(gate="ON").model_dump_json(exclude_none=True))
+                                  SmartGateOutput(gate="ON").model_dump_json(exclude_none=True))
 
     def close(self) -> None:
         self._mqtt_client.publish(f"zigbee2mqtt/{self.id}/set",
-                                  SmartGatePayload(gate="OFF").model_dump_json(exclude_none=True))
+                                  SmartGateOutput(gate="OFF").model_dump_json(exclude_none=True))
 
     def display(self, text: str) -> None:
         self._mqtt_client.publish(f"zigbee2mqtt/{self.id}/set",
-                                  SmartGatePayload(screen_text=text).model_dump_json(exclude_none=True))
+                                  SmartGateOutput(display_text=text).model_dump_json(exclude_none=True))
+
+    def clear_nfc(self) -> None:
+        self._mqtt_client.publish(f"zigbee2mqtt/{self.id}/set",
+                                  SmartGateOutput(clear_nfc=True).model_dump_json(exclude_none=True))
+
+    def clear_display(self) -> None:
+        self._mqtt_client.publish(f"zigbee2mqtt/{self.id}/set",
+                                  SmartGateOutput(clear_display=True).model_dump_json(exclude_none=True))
+
+    async def open_and_close(self, delay: int , open_text: str | None = None) -> None:
+        self.open()
+        if open_text:
+            self.display(open_text)
+
+        await asyncio.sleep(delay)
+
+        self.close()
+        self.clear_display()
 
 
 @dataclass(slots=True)

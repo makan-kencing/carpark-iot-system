@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from typing_extensions import Literal
 
+from carpark_iot_core.components.models import SmartParkingSpace
+
 type State = Literal["ON", "OFF"]
 
 
@@ -9,19 +11,37 @@ class PermitJoinRequest(BaseModel):
     device: str | None = None
 
 
-class SmartParkingSpacePayload(BaseModel):
+class SmartParkingSpaceInput(BaseModel):
+    total: int
+    remaining: int
+
+    def update(self, o: SmartParkingSpace) -> None:
+        o.total = self.total
+        o.remaining = self.remaining
+
+class SmartParkingSpaceOutput(BaseModel):
     total: int | None = None
-    available: int | None = None
+    remaining: int | None = None
 
 
-class SmartGatePayload(BaseModel):
-    nfc_data: bytes | None = None
-    screen_text: str | None = None
+class SmartGateInput(BaseModel):
+    gate: State
+    display_text: str | None
+    nfc_data: str | None
+
+
+class SmartGateOutput(BaseModel):
     gate: State | None = None
+    display_text: str | None = None
+    nfc_data: str | None = None
+    clear_display: bool | None = None
+    clear_nfc: bool | None = None
 
 
 __all__ = (
     "PermitJoinRequest",
-    "SmartParkingSpacePayload",
-    "SmartGatePayload"
+    "SmartGateInput",
+    "SmartGateOutput",
+    "SmartParkingSpaceInput",
+    "SmartParkingSpaceOutput",
 )
