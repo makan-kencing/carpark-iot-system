@@ -15,7 +15,8 @@ from sqlalchemy import select
 
 from carpark_iot_core.components.models import ParkingSpaceIndicator, SmartGate, SmartParkingSpace, \
     LicensePlateCamera, MqttComponent
-from carpark_iot_core.components.schemas import PermitJoinRequest, SmartParkingSpacePayload, SmartGatePayload
+from carpark_iot_core.components.schemas import PermitJoinRequest, SmartParkingSpaceInput, SmartGateOutput, \
+    SmartParkingSpaceOutput
 from carpark_iot_core.db.database import AsyncDatabase
 from carpark_iot_core.db.models import Entry
 
@@ -86,22 +87,20 @@ class Carpark:
                 for device in payload:
                     self.init_device(device)
 
+            case ["zigbee2mqtt", friendly_name, "availability"]:
+                ...
+
             case ["zigbee2mqtt", friendly_name]:
                 payload: dict[str, Any]
                 match self.mqtt_components.get(friendly_name):
-                    case SmartGate() if friendly_name == self._exit_gate_id:
-                        payload: SmartGatePayload = SmartGatePayload.model_validate(payload)
+                    case SmartGate() as smart_gate if friendly_name == self._exit_gate_id:
+                        payload: SmartGateOutput = SmartGateOutput.model_validate(payload)
 
                         if payload.nfc_data:
-                            asyncio.run(self.handle_nfc())
-                    case SmartParkingSpace():
-                        payload: SmartParkingSpacePayload = SmartParkingSpacePayload.model_validate(payload)
-
-                        parking_space = cast(SmartParkingSpace, self.mqtt_components[friendly_name])
-                        if payload.total:
-                            parking_space.total = payload.total
-                        if payload.available:
-                            parking_space.available = payload.available
+                            asyncio.run(self.handle_nfc(payload.nfc_data))
+                    case SmartParkingSpace() as smart_parking_space:
+                        payload: SmartParkingSpaceInput = SmartParkingSpaceInput.model_validate(payload)
+                        payload.update(smart_parking_space)
 
     def init_device(self, data: dict[str, Any]) -> None:
         friendly_name = data["friendly_name"]
@@ -109,30 +108,29 @@ class Carpark:
             return
 
         match data:
-            case {"model_id": model_id, "manufacturer": "carpark"}:
+            case {"model_id": model_id, "manufacturer": "Carpark"}:
                 match model_id:
-                    case "smart_gate_entry":
+                    case "SGEN":
                         self.mqtt_components[friendly_name] = SmartGate(
                             id=friendly_name,
                             _mqtt_client=self.mqtt_client
                         )
                         self._entry_gate_id = friendly_name
-                        self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}")
-                    case "smart_gate_exit":
+                        self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}/+")
+                    case "SGEX":
                         self.mqtt_components[friendly_name] = SmartGate(
                             id=friendly_name,
                             _mqtt_client=self.mqtt_client
                         )
                         self._exit_gate_id = friendly_name
-                        self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}")
-                    case "smart_parking_space":
+                        self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}/+")
+                    case "SGS3":
                         self.mqtt_components[friendly_name] = SmartParkingSpace(
                             id=friendly_name,
                             _mqtt_client=self.mqtt_client
                         )
-                        self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}")
-                        self.mqtt_client.publish(f"zigbee2mqtt/{friendly_name}/get",
-                                                 SmartParkingSpacePayload().model_dump_json())
+                        self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}/+")
+                        self.mqtt_client.publish(f"zigbee2mqtt/{friendly_name}/get", SmartParkingSpaceOutput().model_dump_json())
             case _:
                 return
 
@@ -153,21 +151,22 @@ class Carpark:
 
         return price
 
-    async def handle_nfc(self):
+    async def handle_nfc(self, nfc_data: str) -> None:
         if not self.checkout:
             return
 
         async with self.db.session as session:
             gate = cast(SmartGate, self.mqtt_components[self._exit_gate_id])
-            gate.open()
-            gate.display(f"Thank you!\nCar: {self.checkout.license_plate}")
+            asyncio.create_task(gate.open_and_close(5, f"Thank you!\nCar: {self.checkout.license_plate}"))
+            gate.clear_nfc()
 
             entry = Entry(license_plate=self.checkout.license_plate, gate_id=gate.id, type=Entry.EntryType.Exit,
                           price=self.checkout.price)
             session.add(entry)
             await session.commit()
 
-    async def handle_car(self, license_plate: str):
+
+    async def handle_car(self, license_plate: str) -> None:
         stmt = select(Entry) \
             .where(Entry.license_plate == license_plate) \
             .order_by(Entry.timestamp.desc()) \
@@ -182,8 +181,7 @@ class Carpark:
 
                     gate = cast(SmartGate, self.mqtt_components[self._exit_gate_id])
                     if price.is_zero():
-                        gate.open()
-                        gate.display(f"Thank you!\nCar: {license_plate}")
+                        asyncio.create_task(gate.open_and_close(5, f"Thank you!\nCar: {self.checkout.license_plate}"))
 
                         entry = Entry(license_plate=license_plate, gate_id=gate.id, type=Entry.EntryType.Exit,
                                       price=price)
@@ -195,8 +193,7 @@ class Carpark:
                         self.checkout = CheckoutStatus(license_plate, price)
                 case Entry.EntryType.Exit | None:
                     gate = cast(SmartGate, self.mqtt_components[self._entry_gate_id])
-                    gate.open()
-                    gate.display(f"Welcome\nCar: {license_plate}")
+                    asyncio.create_task(gate.open_and_close(5, f"Welcome\nCar: {license_plate}"))
 
                     entry = Entry(license_plate=license_plate, gate_id=gate.id, type=Entry.EntryType.Entry)
                     session.add(entry)
