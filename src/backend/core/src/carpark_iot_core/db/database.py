@@ -9,16 +9,16 @@ logger = logging.getLogger(__name__)
 
 class AsyncDatabase:
     def __init__(self, db_url: str, **kwargs) -> None:
-        self._engine = create_async_engine(db_url, **kwargs)
+        self.engine = create_async_engine(db_url, **kwargs)
         self._session_factory = async_scoped_session(
             async_sessionmaker(
-                self._engine,
+                self.engine,
                 autoflush=False
             )
         )
 
     async def create_database(self) -> None:
-        async with self._engine.begin() as conn:  # noqa
+        async with self.engine.begin() as conn:  # noqa
             await conn.run_sync(Base.metadata.create_all)
 
     @property
