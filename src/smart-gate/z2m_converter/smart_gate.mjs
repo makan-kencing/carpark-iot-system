@@ -31,10 +31,10 @@ const smartGateExtend = {
             }
         }
         let commands = {
-            writeDisplayText: {
+            clearDisplay: {
                 ID: 0,
-                name: "writeDisplayText",
-                parameters: [{name: "text", type: Zcl.DataType.CHAR_STR}]
+                name: "clearDisplay",
+                parameters: []
             }
         }
 
@@ -86,24 +86,21 @@ const smartGateExtend = {
             validate(value) {
             }
         });
-        extend.exposes.push(e.composite("write_display_text", "write_display_text", ea.STATE_SET)
-            .withFeature(e.text("text", ea.STATE_SET))
-            .withDescription("Display text on the lcd screen")
+        extend.exposes.push(e.enum("clear_display", ea.STATE_SET, ["clear_display"])
+            .withDescription("Clear LCD display")
             .withCategory("config"));
-        // extend.toZigbee.push(
-        //     {
-        //         key: ["write_display_text"],
-        //         convertSet: async (entity, key, values, meta) => {
-        //             await entity.command(
-        //                 "control",
-        //                 "writeDisplayText",
-        //                 {
-        //                     text: values.text
-        //                 }
-        //             );
-        //         },
-        //     }
-        // );
+        extend.toZigbee.push(
+            {
+                key: ["clear_display"],
+                convertSet: async (entity, key, values, meta) => {
+                    await entity.command(
+                        "control",
+                        "clearDisplay",
+                        {}
+                    );
+                },
+            }
+        );
         return extend;
     },
     nfc: () => {
