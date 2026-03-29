@@ -31,7 +31,7 @@ class CheckoutStatus:
 
 class Carpark:
     camera: LicensePlateCamera
-    parking_space_indicator: ParkingSpaceIndicator
+    parking_space_counter: ParkingSpaceIndicator
 
     free_grace_period: int
     price_per_hour: Decimal
@@ -57,7 +57,7 @@ class Carpark:
         self.db = db
         self.firebase_client = firebase_client
         self.firebase_refresh = firebase_refresh
-        self.parking_space_indicator = parking_space_indicator
+        self.parking_space_counter = parking_space_indicator
         self.free_grace_period = free_grace_period
         self.price_per_hour = price_per_hour
 
@@ -101,6 +101,8 @@ class Carpark:
                     case SmartParkingSpace() as smart_parking_space:
                         payload: SmartParkingSpaceInput = SmartParkingSpaceInput.model_validate(payload)
                         payload.update(smart_parking_space)
+
+                        self.update_carpark_space_counter()
 
     def init_device(self, data: dict[str, Any]) -> None:
         friendly_name = data["friendly_name"]
@@ -150,6 +152,15 @@ class Carpark:
         price += self.price_per_hour * int(delta_seconds // 3600)
 
         return price
+
+    def update_carpark_space_counter(self) -> None:
+        total = remaining = 0
+        for component in self.mqtt_components.values():
+            if isinstance(component, SmartParkingSpace):
+                total += component.total
+                remaining += component.remaining
+
+        self.parking_space_counter.display(total=total, remaining=remaining)
 
     async def handle_nfc(self, nfc_data: str) -> None:
         if not self.checkout:
