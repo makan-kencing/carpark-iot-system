@@ -90,20 +90,20 @@ const smartGateExtend = {
             .withFeature(e.text("text", ea.STATE_SET))
             .withDescription("Display text on the lcd screen")
             .withCategory("config"));
-        extend.toZigbee.push(
-            {
-                key: ["write_display_text"],
-                convertSet: async (entity, key, values, meta) => {
-                    await entity.command(
-                        "control",
-                        "writeDisplayText",
-                        {
-                            text: values.text
-                        }
-                    );
-                },
-            }
-        );
+        // extend.toZigbee.push(
+        //     {
+        //         key: ["write_display_text"],
+        //         convertSet: async (entity, key, values, meta) => {
+        //             await entity.command(
+        //                 "control",
+        //                 "writeDisplayText",
+        //                 {
+        //                     text: values.text
+        //                 }
+        //             );
+        //         },
+        //     }
+        // );
         return extend;
     },
     nfc: () => {
