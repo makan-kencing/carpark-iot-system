@@ -111,15 +111,15 @@ static esp_err_t zb_attribute_handler(const esp_zb_zcl_set_attr_value_message_t 
                 // servo_driver_set_angle(gate_state ? 90 : 0);
                 ESP_LOGI(TAG, "Gate set to %s", gate_state ? "On" : "Off");
 
-                esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE, HA_CONTROL_GATE_ATTR, &gate_state, false);
-                esp_zb_zcl_report_attr_cmd_t ph_cmd_req = {
-                    .clusterID = HA_CONTROL_CLUSTER,
-                    .attributeID = HA_CONTROL_GATE_ATTR,
-                    .address_mode = ESP_ZB_APS_ADDR_MODE_DST_ADDR_ENDP_NOT_PRESENT,
-                    .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_CLI,
-                    .zcl_basic_cmd.src_endpoint = HA_ESP_ENDPOINT
-                };
-                ret = esp_zb_zcl_report_attr_cmd_req(&ph_cmd_req);
+                // esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE, HA_CONTROL_GATE_ATTR, &gate_state, false);
+                // esp_zb_zcl_report_attr_cmd_t ph_cmd_req = {
+                //     .clusterID = HA_CONTROL_CLUSTER,
+                //     .attributeID = HA_CONTROL_GATE_ATTR,
+                //     .address_mode = ESP_ZB_APS_ADDR_MODE_DST_ADDR_ENDP_NOT_PRESENT,
+                //     .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_CLI,
+                //     .zcl_basic_cmd.src_endpoint = HA_ESP_ENDPOINT
+                // };
+                // ret = esp_zb_zcl_report_attr_cmd_req(&ph_cmd_req);
             }
             else if (message->attribute.id == HA_CONTROL_DISPLAY_ATTR && message->attribute.data.type == ESP_ZB_ZCL_ATTR_TYPE_CHAR_STRING) {
                 display_text = message->attribute.data.value ? (char *) message->attribute.data.value : display_text;
@@ -127,15 +127,15 @@ static esp_err_t zb_attribute_handler(const esp_zb_zcl_set_attr_value_message_t 
                 // lcd_driver_print(display_text);
                 ESP_LOGI(TAG, "Lcd display output set to '%s'", display_text);
 
-                esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE, HA_CONTROL_DISPLAY_ATTR, display_text, false);
-                esp_zb_zcl_report_attr_cmd_t ph_cmd_req = {
-                    .clusterID = HA_CONTROL_CLUSTER,
-                    .attributeID = HA_CONTROL_DISPLAY_ATTR,
-                    .address_mode = ESP_ZB_APS_ADDR_MODE_DST_ADDR_ENDP_NOT_PRESENT,
-                    .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_CLI,
-                    .zcl_basic_cmd.src_endpoint = HA_ESP_ENDPOINT
-                };
-                ret = esp_zb_zcl_report_attr_cmd_req(&ph_cmd_req);
+                // esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE, HA_CONTROL_DISPLAY_ATTR, display_text, false);
+                // esp_zb_zcl_report_attr_cmd_t ph_cmd_req = {
+                //     .clusterID = HA_CONTROL_CLUSTER,
+                //     .attributeID = HA_CONTROL_DISPLAY_ATTR,
+                //     .address_mode = ESP_ZB_APS_ADDR_MODE_DST_ADDR_ENDP_NOT_PRESENT,
+                //     .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_CLI,
+                //     .zcl_basic_cmd.src_endpoint = HA_ESP_ENDPOINT
+                // };
+                // ret = esp_zb_zcl_report_attr_cmd_req(&ph_cmd_req);
             }
         }
     }
@@ -155,36 +155,20 @@ static esp_err_t zb_custom_cmd_handler(const esp_zb_zcl_custom_cluster_command_m
 
     if (message->info.dst_endpoint == HA_ESP_ENDPOINT) {
         if (message->info.cluster == HA_CONTROL_CLUSTER) {
-            if (message->info.command.id == HA_CONTROL_SET_DISPLAY_TEXT_CMD) {
-                display_text = message->data.value ? (char *) message->data.value : display_text;
-
-                // lcd_driver_print(display_text);
-                ESP_LOGI(TAG, "Lcd display output set to '%s'", display_text);
-
-                esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE, HA_CONTROL_DISPLAY_ATTR, display_text, false);
-                esp_zb_zcl_report_attr_cmd_t ph_cmd_req = {
-                    .clusterID = HA_CONTROL_CLUSTER,
-                    .attributeID = HA_CONTROL_DISPLAY_ATTR,
-                    .address_mode = ESP_ZB_APS_ADDR_MODE_DST_ADDR_ENDP_NOT_PRESENT,
-                    .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_CLI,
-                    .zcl_basic_cmd.src_endpoint = HA_ESP_ENDPOINT
-                };
-                ret = esp_zb_zcl_report_attr_cmd_req(&ph_cmd_req);
-            }
-            else if (message->info.command.id == HA_CONTROL_CLEAR_NFC_CMD) {
+            if (message->info.command.id == HA_CONTROL_CLEAR_NFC_CMD) {
                 nfc_data = NULL;
 
                 ESP_LOGI(TAG, "Cleared NFC");
 
-                esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE, HA_CONTROL_NFC_ATTR, nfc_data, false);
-                esp_zb_zcl_report_attr_cmd_t ph_cmd_req = {
-                    .clusterID = HA_CONTROL_CLUSTER,
-                    .attributeID = HA_CONTROL_NFC_ATTR,
-                    .address_mode = ESP_ZB_APS_ADDR_MODE_DST_ADDR_ENDP_NOT_PRESENT,
-                    .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_CLI,
-                    .zcl_basic_cmd.src_endpoint = HA_ESP_ENDPOINT
-                };
-                ret = esp_zb_zcl_report_attr_cmd_req(&ph_cmd_req);
+                // esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE, HA_CONTROL_NFC_ATTR, nfc_data, false);
+                // esp_zb_zcl_report_attr_cmd_t ph_cmd_req = {
+                //     .clusterID = HA_CONTROL_CLUSTER,
+                //     .attributeID = HA_CONTROL_NFC_ATTR,
+                //     .address_mode = ESP_ZB_APS_ADDR_MODE_DST_ADDR_ENDP_NOT_PRESENT,
+                //     .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_CLI,
+                //     .zcl_basic_cmd.src_endpoint = HA_ESP_ENDPOINT
+                // };
+                // ret = esp_zb_zcl_report_attr_cmd_req(&ph_cmd_req);
             }
         }
     }
