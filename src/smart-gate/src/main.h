@@ -31,6 +31,7 @@
 #define HA_CONTROL_GATE_ATTR            0x0000
 #define HA_CONTROL_DISPLAY_ATTR         0x0001
 #define HA_CONTROL_NFC_ATTR             0x0002
+#define HA_CONTROL_CLEAR_DISPLAY_CMD    0x0000
 #define HA_CONTROL_CLEAR_NFC_CMD        0x0001
 
 
