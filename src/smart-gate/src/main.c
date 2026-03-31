@@ -32,7 +32,9 @@
 
 bool gate_state = false;
 char* display_text = NULL;
+#if CONFIG_SMART_GATE_EXIT
 char* nfc_data = NULL;
+#endif
 
 static const char *TAG = "MAIN";
 
@@ -154,6 +156,7 @@ static esp_err_t zb_custom_cmd_handler(const esp_zb_zcl_custom_cluster_command_m
                 };
                 ret = esp_zb_zcl_report_attr_cmd_req(&ph_cmd_req);
             }
+#if CONFIG_SMART_GATE_EXIT
             else if (message->info.command.id == HA_CONTROL_CLEAR_NFC_CMD) {
                 nfc_data = NULL;
 
@@ -169,6 +172,7 @@ static esp_err_t zb_custom_cmd_handler(const esp_zb_zcl_custom_cluster_command_m
                 };
                 ret = esp_zb_zcl_report_attr_cmd_req(&ph_cmd_req);
             }
+#endif
         }
     }
 
@@ -261,7 +265,10 @@ static void esp_zb_task(void *pvParameters) {
     esp_zb_attribute_list_t *cluster = esp_zb_zcl_attr_list_create(HA_CONTROL_CLUSTER);
     esp_zb_custom_cluster_add_custom_attr(cluster, HA_CONTROL_GATE_ATTR, ESP_ZB_ZCL_ATTR_TYPE_BOOL, ESP_ZB_ZCL_ATTR_ACCESS_READ_WRITE | ESP_ZB_ZCL_ATTR_ACCESS_REPORTING, &gate_state);
     esp_zb_custom_cluster_add_custom_attr(cluster, HA_CONTROL_DISPLAY_ATTR, ESP_ZB_ZCL_ATTR_TYPE_CHAR_STRING, ESP_ZB_ZCL_ATTR_ACCESS_READ_WRITE | ESP_ZB_ZCL_ATTR_ACCESS_REPORTING, &display_text);
+#if CONFIG_SMART_GATE_EXIT
     esp_zb_custom_cluster_add_custom_attr(cluster, HA_CONTROL_NFC_ATTR, ESP_ZB_ZCL_ATTR_TYPE_ARRAY, ESP_ZB_ZCL_ATTR_ACCESS_READ_ONLY | ESP_ZB_ZCL_ATTR_ACCESS_REPORTING, &nfc_data);
+#endif
+
 
     /* create cluster lists for this endpoint */
     esp_zb_cluster_list_t *esp_zb_cluster_list = esp_zb_zcl_cluster_list_create();
@@ -291,6 +298,9 @@ void app_main(void) {
     i2c_driver_init_master();
     lcd_driver_init();
     servo_driver_init(0);
+#if CONFIG_SMART_GATE_EXIT
+    // nfc_driver_init();
+#endif
 
     esp_zb_platform_config_t config = {
         .radio_config = ESP_ZB_DEFAULT_RADIO_CONFIG(),

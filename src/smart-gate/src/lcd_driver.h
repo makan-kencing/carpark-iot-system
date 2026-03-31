@@ -1,7 +1,6 @@
 #pragma once
 
 /* LCD Configuration */
-#define LCD_ADDR 0x27 /* I2C address of the LCD */
 // https://en.wikipedia.org/wiki/HD44780_(integrated_circuit)#Instruction_set
 #define LCD_CMD_CLEAR_DISPLAY 0x01
 #define LCD_CMD_RETURN_HOME 0x02

@@ -22,7 +22,15 @@
 #define ESP_ZB_PRIMARY_CHANNEL_MASK     ESP_ZB_TRANSCEIVER_ALL_CHANNELS_MASK /* Zigbee primary channel mask use in the example */
 
 #define MANUFACTURER_NAME               "\x09""ESPRESSIF"
+
+#if CONFIG_SMART_GATE_EXIT
 #define MODEL_IDENTIFIER                "\x04""SGEX"
+#elif CONFIG_SMART_GATE_ENTRY
+#define MODEL_IDENTIFIER                "\x04""SGEN"
+#else
+#error "unsupported smart gate"
+#endif
+
 #define APP_PROFILE_ID                  ESP_ZB_AF_HA_PROFILE_ID
 #define POWER_SOURCE                    1                                     /* 0x01     ==  External power supply                   */
 

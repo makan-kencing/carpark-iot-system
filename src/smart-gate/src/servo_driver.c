@@ -35,7 +35,7 @@ void servo_driver_init(uint32_t default_angle) {
         .channel        = LEDC_CHANNEL,
         .timer_sel      = LEDC_TIMER,
         .intr_type      = LEDC_INTR_DISABLE,
-        .gpio_num       = SERVO_GPIO,
+        .gpio_num       = CONFIG_SERVO_GPIO,
         .duty           = servo_angle_to_duty(default_angle),
         .hpoint         = 0
     };
