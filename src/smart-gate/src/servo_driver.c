@@ -15,7 +15,7 @@ static  uint32_t servo_angle_to_duty(const uint32_t angle) {
 void servo_driver_set_angle(uint32_t angle) {
     angle = MIN(angle, SERVO_MAX_DEGREE);
     ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, servo_angle_to_duty(angle)));
-    ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, angle));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
 }
 
 void servo_driver_init(uint32_t default_angle) {
