@@ -22,6 +22,7 @@
 #include "driver/i2c.h"
 #include <string.h>
 
+#include "i2c_driver.h"
 #include "lcd_driver.h"
 #include "servo_driver.h"
 
@@ -287,6 +288,7 @@ static void esp_zb_task(void *pvParameters) {
 void app_main(void) {
     vTaskDelay(pdMS_TO_TICKS(5000));
 
+    i2c_driver_init_master();
     lcd_driver_init();
     servo_driver_init(0);
 

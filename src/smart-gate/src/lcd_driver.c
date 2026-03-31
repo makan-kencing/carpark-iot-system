@@ -49,8 +49,6 @@ void lcd_driver_print(const char *str) {
 }
 
 void lcd_driver_init(void) {
-    i2c_driver_init_master();
-
     // 4 bit initialization sequence
     vTaskDelay(pdMS_TO_TICKS(50));
     lcd_driver_send_cmd(LCD_CMD_INIT_8_BIT_MODE);
