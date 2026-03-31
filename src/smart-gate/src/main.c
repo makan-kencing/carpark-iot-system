@@ -30,8 +30,8 @@
 #endif
 
 bool gate_state = false;
-char* display_text = "\x0";
-char* nfc_data = "\x0";
+char* display_text = NULL;
+char* nfc_data = NULL;
 
 static const char *TAG = "MAIN";
 
@@ -108,14 +108,16 @@ static esp_err_t zb_attribute_handler(const esp_zb_zcl_set_attr_value_message_t 
             if (message->attribute.id == HA_CONTROL_GATE_ATTR && message->attribute.data.type == ESP_ZB_ZCL_ATTR_TYPE_BOOL) {
                 gate_state = message->attribute.data.value ? *(bool *) message->attribute.data.value : gate_state;
 
-                // servo_driver_set_angle(gate_state ? 90 : 0);
+                servo_driver_set_angle(gate_state ? 90 : 0);
                 ESP_LOGI(TAG, "Gate set to %s", gate_state ? "On" : "Off");
             }
             else if (message->attribute.id == HA_CONTROL_DISPLAY_ATTR && message->attribute.data.type == ESP_ZB_ZCL_ATTR_TYPE_CHAR_STRING) {
                 display_text = message->attribute.data.value ? (char *) message->attribute.data.value : display_text;
+                const uint8_t len = *display_text;
+                *(display_text + len + 1) = 0;
 
-                // lcd_driver_print(display_text);
-                ESP_LOGI(TAG, "Lcd display output set to '%s'", display_text);
+                lcd_driver_print(display_text + 1);
+                ESP_LOGI(TAG, "Lcd display output set to '%s'", display_text + 1);
             }
         }
     }
@@ -136,9 +138,9 @@ static esp_err_t zb_custom_cmd_handler(const esp_zb_zcl_custom_cluster_command_m
     if (message->info.dst_endpoint == HA_ESP_ENDPOINT) {
         if (message->info.cluster == HA_CONTROL_CLUSTER) {
             if (message->info.command.id == HA_CONTROL_CLEAR_DISPLAY_CMD) {
-                display_text = "\x0";
+                display_text = NULL;
 
-                // lcd_driver_clear();
+                lcd_driver_clear();
                 ESP_LOGI(TAG, "Cleared display");
 
                 esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE, HA_CONTROL_DISPLAY_ATTR, display_text, false);
@@ -152,7 +154,7 @@ static esp_err_t zb_custom_cmd_handler(const esp_zb_zcl_custom_cluster_command_m
                 ret = esp_zb_zcl_report_attr_cmd_req(&ph_cmd_req);
             }
             else if (message->info.command.id == HA_CONTROL_CLEAR_NFC_CMD) {
-                nfc_data = "\x0";
+                nfc_data = NULL;
 
                 ESP_LOGI(TAG, "Cleared NFC");
 
@@ -285,8 +287,8 @@ static void esp_zb_task(void *pvParameters) {
 void app_main(void) {
     vTaskDelay(pdMS_TO_TICKS(5000));
 
-    // lcd_driver_init();
-    // servo_driver_init(0);
+    lcd_driver_init();
+    servo_driver_init(0);
 
     esp_zb_platform_config_t config = {
         .radio_config = ESP_ZB_DEFAULT_RADIO_CONFIG(),
@@ -296,4 +298,6 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_zb_platform_config(&config));
 
     xTaskCreate(esp_zb_task, "Zigbee_main", 4096, NULL, 5, NULL);
+
+    lcd_driver_clear();
 }
