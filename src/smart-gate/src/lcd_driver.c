@@ -7,12 +7,7 @@
 static void lcd_driver_send_cmd(const char cmd) {
     const char data_u = cmd & 0xf0;
     const char data_l = cmd << 4 & 0xf0;
-    const uint8_t data_t[4] = {
-        data_u | LCD_CMD_DISPLAY(1, 0, 0),
-        data_u | LCD_CMD_DISPLAY(0, 0, 0),
-        data_l | LCD_CMD_DISPLAY(1, 0, 0),
-        data_l | LCD_CMD_DISPLAY(0, 0, 0)
-    };
+    const uint8_t data_t[4] = { data_u | 0x0C, data_u | 0x08, data_l | 0x0C, data_l | 0x08 };
     i2c_master_write_to_device(I2C_MASTER_NUM, LCD_ADDR, data_t, 4, 1000 / portTICK_PERIOD_MS);
     vTaskDelay(pdMS_TO_TICKS(2));
 }
@@ -20,12 +15,7 @@ static void lcd_driver_send_cmd(const char cmd) {
 static void lcd_driver_send_char(const char c) {
     const char data_u = c & 0xf0;
     const char data_l = c << 4 & 0xf0;
-    const uint8_t data_t[4] = {
-        data_u | LCD_CMD_DISPLAY(1, 0, 1),
-        data_u | LCD_CMD_DISPLAY(0, 0, 1),
-        data_l | LCD_CMD_DISPLAY(1, 0, 1),
-        data_l | LCD_CMD_DISPLAY(0, 0, 1)
-    };
+    const uint8_t data_t[4] = { data_u | 0x0D, data_u | 0x09, data_l | 0x0D, data_l | 0x09 };
     ESP_ERROR_CHECK(i2c_master_write_to_device(I2C_MASTER_NUM, LCD_ADDR, data_t, 4, 1000 / portTICK_PERIOD_MS));
     vTaskDelay(pdMS_TO_TICKS(2)); // give lcd time to print
 }
@@ -46,13 +36,15 @@ void lcd_driver_print(const char *str) {
     lcd_driver_clear();
 
     int row = 0;
-    while (*str) {
-        if (*str == '\n') {
+    char current;
+    while ((current = *str++)) {
+        if (current == '\n') {
             row++;
             lcd_driver_set_cursor(row, 0);
+            continue;
         }
 
-        lcd_driver_send_char(*str++);
+        lcd_driver_send_char(current);
     }
 }
 
