@@ -32,7 +32,6 @@ class DatabaseSettings(BaseSettings):
 
 class FirebaseSettings(BaseSettings):
     service_account_path: FilePath
-    auth_domain: str
     db_url: str
     storage_bucket_url: str
 
