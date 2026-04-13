@@ -13,4 +13,4 @@ ENV UV_NO_DEV=1
 WORKDIR /app
 RUN uv sync --locked
 
-CMD ["uv", "run", "carpark-iot-api"]
+CMD ["uv", "run", "fastapi", "run"]
