@@ -21,6 +21,7 @@
 #include "esp_err.h"
 #include "driver/i2c.h"
 #include <string.h>
+#include <ultrasonic.h>
 
 #if !defined ZB_ED_ROLE
 #error Define ZB_ED_ROLE in idf.py menuconfig to compile light (End Device) source code.
@@ -189,6 +190,126 @@ static void esp_zb_task(void *pvParameters) {
     esp_zb_stack_main_loop();
 }
 
+#define MAX_DISTANCE_CM 20
+#define LED_RED_GPIO 13
+#define LED_GREEN_GPIO 12
+#define TRIGGER_GPIO 4
+#define ECHO_GPIO_0 7
+#define ECHO_GPIO_1 10
+#define ECHO_GPIO_2 5
+
+
+static bool space_status[3] = {false, false,false};
+static float baseline_distance[3] = {0, 0 ,0};
+
+static void update_led(void) {
+    bool all_occupied = space_status[0] && space_status[1] && space_status[2] ;
+    if (all_occupied) {
+        gpio_set_level(LED_RED_GPIO, 1);
+        gpio_set_level(LED_GREEN_GPIO, 0);
+        ESP_LOGI(TAG, "ALL SPACES FULL");
+    } else {
+        gpio_set_level(LED_RED_GPIO, 0);
+        gpio_set_level(LED_GREEN_GPIO, 1);
+        ESP_LOGI(TAG, "SPACE AVAILABLE");
+    }
+}
+
+static void on_space_occupied(int ultrasonic_id) {
+    ESP_LOGI(TAG, "Space %d is OCCUPIED", ultrasonic_id);
+    space_status[ultrasonic_id - 1] = true;
+    update_led();
+}
+
+static void on_space_available(int ultrasonic_id) {
+    ESP_LOGI(TAG, "Space %d is AVAILABLE", ultrasonic_id);
+    space_status[ultrasonic_id - 1] = false;
+    update_led();
+}
+
+static int get_echo_pin(int sensor_id) {
+    switch (sensor_id) {
+        case 1: return ECHO_GPIO_0;
+        case 2: return ECHO_GPIO_1;
+        case 3: return ECHO_GPIO_2;
+        default: return ECHO_GPIO_0;
+    }
+}
+
+static void parking_ultrasonic_sensor(void* pvParameters) {
+    int sensor_id = (int) pvParameters;
+
+    ultrasonic_sensor_t sensor = {
+        .trigger_pin = TRIGGER_GPIO,
+        .echo_pin = get_echo_pin(sensor_id)
+    };
+    ultrasonic_init(&sensor);
+
+    ESP_LOGI(TAG, "Sensor %d: Calibrating...", sensor_id);
+    float total = 0;
+    int success_count = 0;
+
+    while (success_count < 5) {
+        float cal_distance;
+        esp_err_t cal_res = ultrasonic_measure(&sensor, 500, &cal_distance);
+        if (cal_res == ESP_OK) {
+            float cm = cal_distance * 100;
+            if (cm > 5.0f) {
+                total += cm;
+                success_count++;
+                ESP_LOGI(TAG, "Sensor %d: Reading %d = %.2f cm",
+                         sensor_id, success_count, cm);
+            } else {
+                ESP_LOGW(TAG, "Sensor %d: Ignoring noise %.2f cm",
+                         sensor_id, cm);
+            }
+        } else {
+            ESP_LOGW(TAG, "Sensor %d: Calibration failed, retrying...", sensor_id);
+        }
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+
+    baseline_distance[sensor_id - 1] = total / 5;
+    ESP_LOGI(TAG, "Sensor %d: Final baseline = %.2f cm",
+             sensor_id, baseline_distance[sensor_id - 1]);
+
+    while (true) {
+        float distance;
+        esp_err_t res = ultrasonic_measure(&sensor, 500, &distance);
+
+        if (res != ESP_OK) {
+            switch (res) {
+                case ESP_ERR_ULTRASONIC_PING:
+                    printf("Sensor %d: Cannot ping\n", sensor_id);
+                    break;
+                case ESP_ERR_ULTRASONIC_PING_TIMEOUT:
+                    printf("Sensor %d: Ping timeout\n", sensor_id);
+                    break;
+                case ESP_ERR_ULTRASONIC_ECHO_TIMEOUT:
+                    printf("Sensor %d: Echo timeout\n", sensor_id);
+                    break;
+                default:
+                    printf("Sensor %d: %s\n", sensor_id, esp_err_to_name(res));
+            }
+        } else {
+            float distance_cm = distance * 100;
+            float threshold = baseline_distance[sensor_id - 1] - 0.5f;
+
+            printf("Sensor %d: %.2f cm (baseline: %.2f cm, threshold: %.2f cm)\n",
+                   sensor_id, distance_cm,
+                   baseline_distance[sensor_id - 1], threshold);
+
+            if (distance_cm < threshold && !space_status[sensor_id - 1]) {
+                on_space_occupied(sensor_id);
+            } else if (distance_cm >= threshold && space_status[sensor_id - 1]) {
+                on_space_available(sensor_id);
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+}
+
+
 void app_main(void) {
     vTaskDelay(pdMS_TO_TICKS(5000));
 
@@ -198,6 +319,8 @@ void app_main(void) {
     };
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_zb_platform_config(&config));
-
     xTaskCreate(esp_zb_task, "Zigbee_main", 4096, NULL, 5, NULL);
+    xTaskCreate(parking_ultrasonic_sensor, "sensor_1", 4096, (void *)1, 5, NULL);
+    xTaskCreate(parking_ultrasonic_sensor, "sensor_2", 4096, (void *)2, 5, NULL);
+    xTaskCreate(parking_ultrasonic_sensor, "sensor_3", 4096, (void *)3, 5, NULL);
 }
