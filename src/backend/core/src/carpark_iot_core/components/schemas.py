@@ -1,7 +1,8 @@
 from pydantic import BaseModel
-from typing_extensions import Literal
+from typing import Literal, TYPE_CHECKING
 
-from carpark_iot_core.components.models import SmartParkingSpace
+if TYPE_CHECKING:
+    from carpark_iot_core.components.models import SmartParkingSpace
 
 type State = Literal["ON", "OFF"]
 
