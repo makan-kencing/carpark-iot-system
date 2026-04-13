@@ -8,7 +8,7 @@ from typing import Callable
 from fast_alpr import ALPR
 from gpiozero import LEDMultiCharDisplay, TrafficLights
 from paho.mqtt.client import Client
-from picamera2 import Picamera2, MappedArray
+from picamera2 import Picamera2, MappedArray, Preview
 
 from carpark_iot_core.components.schemas import SmartGateOutput
 
@@ -100,7 +100,7 @@ class LicensePlateCamera(Component):
         self._camera = Picamera2()
         self._camera.configure(
             self._camera.create_preview_configuration({"size": (1024, 768)}, controls={"FrameRate": 15}))
-        self._camera.start_preview()
+        self._camera.start_preview(Preview.QTGL)
         self._camera.start()
 
         self._camera.post_callback = self.draw_texts
