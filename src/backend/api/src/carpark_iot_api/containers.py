@@ -20,7 +20,7 @@ class ApplicationContainer(containers.DeclarativeContainer):
 
     db: AsyncDatabase = providers.Singleton(
         AsyncDatabase,
-        db_url=config.db.as_(lambda o: f"{o.driver}://{o.user}:{o.password.get_secret_value()}@{o.host}:{o.port}/{o.name}")
+        db_url=config.db.as_(lambda o: f"{o["driver"]}://{o["user"]}:{o["password"].get_secret_value()}@{o["host"]}:{o["port"]}/{o["name"]}")
     )
 
     # Services
