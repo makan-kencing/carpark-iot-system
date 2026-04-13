@@ -1,4 +1,5 @@
 import logging
+from asyncio import current_task
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_scoped_session, async_sessionmaker, AsyncSession
 
@@ -14,7 +15,8 @@ class AsyncDatabase:
             async_sessionmaker(
                 self.engine,
                 autoflush=False
-            )
+            ),
+            scopefunc=current_task,
         )
 
     async def create_database(self) -> None:
