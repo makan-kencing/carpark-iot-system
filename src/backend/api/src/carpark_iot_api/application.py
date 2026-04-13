@@ -9,7 +9,10 @@ def create_app() -> FastAPI:
     container = ApplicationContainer()
     container.wire(modules=[__name__])
 
-    container.config.from_pydantic(CarparkSettings())  # noqa
+    settings = CarparkSettings()
+    settings.firebase.auth()
+
+    container.config.from_pydantic(settings)  # noqa
 
     app = FastAPI()
     app.container = container
