@@ -1,2 +1,2 @@
-[configuration.yaml]
+[docker-compose*.{yaml,yml}]
 indent_size = 4

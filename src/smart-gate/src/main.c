@@ -17,13 +17,23 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "ha/esp_zigbee_ha_standard.h"
-#include "zcl_utility.h"
 #include "main.h"
-#include "driver/ledc.h"
 #include "esp_err.h"
+#include "driver/i2c.h"
+#include <string.h>
+
+#include "i2c_driver.h"
+#include "lcd_driver.h"
+#include "servo_driver.h"
 
 #if !defined ZB_ED_ROLE
 #error Define ZB_ED_ROLE in idf.py menuconfig to compile light (End Device) source code.
+#endif
+
+bool gate_state = false;
+char* display_text = NULL;
+#if CONFIG_SMART_GATE_EXIT
+char* nfc_data = NULL;
 #endif
 
 static const char *TAG = "MAIN";
@@ -38,9 +48,9 @@ static void bdb_start_top_level_commissioning_cb(uint8_t mode_mask) {
 }
 
 void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct) {
-    uint32_t *p_sg_p = signal_struct->p_app_signal;
-    esp_err_t err_status = signal_struct->esp_err_status;
-    esp_zb_app_signal_type_t sig_type = *p_sg_p;
+    const uint32_t *p_sg_p = signal_struct->p_app_signal;
+    const esp_err_t err_status = signal_struct->esp_err_status;
+    const esp_zb_app_signal_type_t sig_type = *p_sg_p;
     switch (sig_type) {
         case ESP_ZB_ZDO_SIGNAL_SKIP_STARTUP:
             ESP_LOGI(TAG, "Initialize Zigbee stack");
@@ -95,27 +105,133 @@ static esp_err_t zb_attribute_handler(const esp_zb_zcl_set_attr_value_message_t 
     ESP_LOGI(TAG, "Received message: endpoint(%d), cluster(0x%x), attribute(0x%x), data size(%d)",
              message->info.dst_endpoint, message->info.cluster,
              message->attribute.id, message->attribute.data.size);
-#ifdef PLACEHOLDER_CODE
-    if (message->info.dst_endpoint == HA_ESP_LIGHT_ENDPOINT) {
-        if (message->info.cluster == ESP_ZB_ZCL_CLUSTER_ID_ON_OFF) {
-            if (message->attribute.id == ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID && message->attribute.data.type ==
-                ESP_ZB_ZCL_ATTR_TYPE_BOOL) {
-                light_state = message->attribute.data.value ? *(bool *) message->attribute.data.value : light_state;
-                ESP_LOGI(TAG, "Light sets to %s", light_state ? "On" : "Off");
-                light_driver_set_power(light_state);
+
+    if (message->info.dst_endpoint == HA_ESP_ENDPOINT) {
+        if (message->info.cluster == HA_CONTROL_CLUSTER) {
+            if (message->attribute.id == HA_CONTROL_GATE_ATTR && message->attribute.data.type == ESP_ZB_ZCL_ATTR_TYPE_BOOL) {
+                gate_state = message->attribute.data.value ? *(bool *) message->attribute.data.value : gate_state;
+
+                servo_driver_set_angle(gate_state ? 90 : 0);
+                ESP_LOGI(TAG, "Gate set to %s", gate_state ? "On" : "Off");
+            }
+            else if (message->attribute.id == HA_CONTROL_DISPLAY_ATTR && message->attribute.data.type == ESP_ZB_ZCL_ATTR_TYPE_CHAR_STRING) {
+                display_text = message->attribute.data.value ? (char *) message->attribute.data.value : display_text;
+                const uint8_t len = *display_text;
+                *(display_text + len + 1) = 0;
+
+                lcd_driver_print(display_text + 1);
+                ESP_LOGI(TAG, "Lcd display output set to '%s'", display_text + 1);
             }
         }
     }
-#endif
     return ret;
 }
 
-static esp_err_t zb_action_handler(esp_zb_core_action_callback_id_t callback_id, const void *message) {
+static esp_err_t zb_custom_cmd_handler(const esp_zb_zcl_custom_cluster_command_message_t *message)
+{
+    esp_err_t ret = ESP_OK;
+
+    ESP_RETURN_ON_FALSE(message, ESP_FAIL, TAG, "Empty message");
+    ESP_RETURN_ON_FALSE(message->info.status == ESP_ZB_ZCL_STATUS_SUCCESS, ESP_ERR_INVALID_ARG, TAG, "Received message: error status(%d)",
+                        message->info.status);
+    ESP_LOGI(TAG, "Receive custom command: %d from address 0x%04hx", message->info.command.id, message->info.src_address.u.short_addr);
+    ESP_LOGI(TAG, "Payload size: %d", message->data.size);
+    ESP_LOG_BUFFER_CHAR(TAG, (uint8_t *)message->data.value + 1, MAX(message->data.size - 1, 0));
+
+    if (message->info.dst_endpoint == HA_ESP_ENDPOINT) {
+        if (message->info.cluster == HA_CONTROL_CLUSTER) {
+            if (message->info.command.id == HA_CONTROL_CLEAR_DISPLAY_CMD) {
+                display_text = NULL;
+
+                lcd_driver_clear();
+                ESP_LOGI(TAG, "Cleared display");
+
+                esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE, HA_CONTROL_DISPLAY_ATTR, display_text, false);
+                esp_zb_zcl_report_attr_cmd_t ph_cmd_req = {
+                    .clusterID = HA_CONTROL_CLUSTER,
+                    .attributeID = HA_CONTROL_DISPLAY_ATTR,
+                    .address_mode = ESP_ZB_APS_ADDR_MODE_DST_ADDR_ENDP_NOT_PRESENT,
+                    .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_CLI,
+                    .zcl_basic_cmd.src_endpoint = HA_ESP_ENDPOINT
+                };
+                ret = esp_zb_zcl_report_attr_cmd_req(&ph_cmd_req);
+            }
+#if CONFIG_SMART_GATE_EXIT
+            else if (message->info.command.id == HA_CONTROL_CLEAR_NFC_CMD) {
+                nfc_data = NULL;
+
+                ESP_LOGI(TAG, "Cleared NFC");
+
+                esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE, HA_CONTROL_NFC_ATTR, nfc_data, false);
+                esp_zb_zcl_report_attr_cmd_t ph_cmd_req = {
+                    .clusterID = HA_CONTROL_CLUSTER,
+                    .attributeID = HA_CONTROL_NFC_ATTR,
+                    .address_mode = ESP_ZB_APS_ADDR_MODE_DST_ADDR_ENDP_NOT_PRESENT,
+                    .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_CLI,
+                    .zcl_basic_cmd.src_endpoint = HA_ESP_ENDPOINT
+                };
+                ret = esp_zb_zcl_report_attr_cmd_req(&ph_cmd_req);
+            }
+#endif
+        }
+    }
+
+    return ret;
+}
+
+static esp_err_t zb_read_attr_resp_handler(const esp_zb_zcl_cmd_read_attr_resp_message_t *message)
+{
+    ESP_RETURN_ON_FALSE(message, ESP_FAIL, TAG, "Empty message");
+    ESP_RETURN_ON_FALSE(message->info.status == ESP_ZB_ZCL_STATUS_SUCCESS, ESP_ERR_INVALID_ARG, TAG, "Received message: error status(%d)",
+                        message->info.status);
+
+    const esp_zb_zcl_read_attr_resp_variable_t *variable = message->variables;
+    while (variable) {
+        ESP_LOGI(TAG, "Read attribute response: status(%d), cluster(0x%x), attribute(0x%x), type(0x%x), value(%d)", variable->status,
+                 message->info.cluster, variable->attribute.id, variable->attribute.data.type,
+                 variable->attribute.data.value ? *(uint8_t *)variable->attribute.data.value : 0);
+        variable = variable->next;
+    }
+
+    return ESP_OK;
+}
+
+static esp_err_t zb_configure_report_resp_handler(const esp_zb_zcl_cmd_config_report_resp_message_t *message) {
+    ESP_RETURN_ON_FALSE(message, ESP_FAIL, TAG, "Empty message");
+    ESP_RETURN_ON_FALSE(message->info.status == ESP_ZB_ZCL_STATUS_SUCCESS, ESP_ERR_INVALID_ARG, TAG,
+                        "Received message: error status(%d)",
+                        message->info.status);
+
+    const esp_zb_zcl_config_report_resp_variable_t *variable = message->variables;
+    while (variable) {
+        ESP_LOGI(TAG, "Configure report response: status(%d), cluster(0x%x), attribute(0x%x)", message->info.status,
+                 message->info.cluster,
+                 variable->attribute_id);
+        variable = variable->next;
+    }
+
+    return ESP_OK;
+}
+
+static esp_err_t zb_action_handler(const esp_zb_core_action_callback_id_t callback_id, const void *message) {
     esp_err_t ret = ESP_OK;
     switch (callback_id) {
         case ESP_ZB_CORE_SET_ATTR_VALUE_CB_ID:
             ret = zb_attribute_handler((esp_zb_zcl_set_attr_value_message_t *) message);
             break;
+
+        case ESP_ZB_CORE_CMD_CUSTOM_CLUSTER_REQ_CB_ID:
+            ret = zb_custom_cmd_handler((esp_zb_zcl_custom_cluster_command_message_t *) message);
+            break;
+
+        case ESP_ZB_CORE_CMD_READ_ATTR_RESP_CB_ID:
+            ret = zb_read_attr_resp_handler((esp_zb_zcl_cmd_read_attr_resp_message_t *)message);
+            break;
+
+        case ESP_ZB_CORE_CMD_REPORT_CONFIG_RESP_CB_ID:
+            ret = zb_configure_report_resp_handler((esp_zb_zcl_cmd_config_report_resp_message_t *) message);
+            break;
+
         default:
             ESP_LOGW(TAG, "Receive Zigbee action(0x%x) callback", callback_id);
             break;
@@ -124,68 +240,68 @@ static esp_err_t zb_action_handler(esp_zb_core_action_callback_id_t callback_id,
 }
 
 static void esp_zb_task(void *pvParameters) {
+    uint8_t uint8_tmp;
+
     /* initialize Zigbee stack */
     esp_zb_cfg_t zb_nwk_cfg = ESP_ZB_ZED_CONFIG();
     esp_zb_init(&zb_nwk_cfg);
 
-    esp_zb_on_off_light_cfg_t light_cfg = ESP_ZB_DEFAULT_ON_OFF_LIGHT_CONFIG();
-    esp_zb_ep_list_t *esp_zb_on_off_light_ep = esp_zb_on_off_light_ep_create(HA_ESP_LIGHT_ENDPOINT, &light_cfg);
+    esp_zb_ep_list_t *esp_zb_ep_list = esp_zb_ep_list_create();
 
-    zcl_basic_manufacturer_info_t info = {
-        .manufacturer_name = ESP_MANUFACTURER_NAME,
-        .model_identifier = ESP_MODEL_IDENTIFIER,
+    // --------------------------------- Endpoint 1 -- Basic Cluster -------------------------------------
+    /* basic cluster */
+    esp_zb_attribute_list_t *esp_zb_basic_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_BASIC);;
+    esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID, MANUFACTURER_NAME);
+    esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID, MODEL_IDENTIFIER);
+
+    esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_ZCL_VERSION_ID, &uint8_tmp);
+    esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_POWER_SOURCE_ID, &uint8_tmp);
+
+    /* identify cluster */
+    esp_zb_attribute_list_t *esp_zb_identify_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_IDENTIFY);
+    esp_zb_identify_cluster_add_attr(esp_zb_identify_cluster, ESP_ZB_ZCL_ATTR_IDENTIFY_IDENTIFY_TIME_ID, &uint8_tmp);
+
+    /* control cluster */
+    esp_zb_attribute_list_t *cluster = esp_zb_zcl_attr_list_create(HA_CONTROL_CLUSTER);
+    esp_zb_custom_cluster_add_custom_attr(cluster, HA_CONTROL_GATE_ATTR, ESP_ZB_ZCL_ATTR_TYPE_BOOL, ESP_ZB_ZCL_ATTR_ACCESS_READ_WRITE | ESP_ZB_ZCL_ATTR_ACCESS_REPORTING, &gate_state);
+    esp_zb_custom_cluster_add_custom_attr(cluster, HA_CONTROL_DISPLAY_ATTR, ESP_ZB_ZCL_ATTR_TYPE_CHAR_STRING, ESP_ZB_ZCL_ATTR_ACCESS_READ_WRITE | ESP_ZB_ZCL_ATTR_ACCESS_REPORTING, &display_text);
+#if CONFIG_SMART_GATE_EXIT
+    esp_zb_custom_cluster_add_custom_attr(cluster, HA_CONTROL_NFC_ATTR, ESP_ZB_ZCL_ATTR_TYPE_ARRAY, ESP_ZB_ZCL_ATTR_ACCESS_READ_ONLY | ESP_ZB_ZCL_ATTR_ACCESS_REPORTING, &nfc_data);
+#endif
+
+
+    /* create cluster lists for this endpoint */
+    esp_zb_cluster_list_t *esp_zb_cluster_list = esp_zb_zcl_cluster_list_create();
+    esp_zb_cluster_list_add_basic_cluster(esp_zb_cluster_list, esp_zb_basic_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
+    esp_zb_cluster_list_add_identify_cluster(esp_zb_cluster_list, esp_zb_identify_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
+    esp_zb_cluster_list_add_custom_cluster(esp_zb_cluster_list, cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
+
+    const esp_zb_endpoint_config_t endpoint_config = {
+        .endpoint = HA_ESP_ENDPOINT,
+        .app_profile_id = APP_PROFILE_ID,
+        .app_device_id = ESP_ZB_HA_LEVEL_CONTROLLABLE_OUTPUT_DEVICE_ID,
+        .app_device_version = 0
     };
+    esp_zb_ep_list_add_ep(esp_zb_ep_list, esp_zb_cluster_list, endpoint_config);
+    // --------------------------------------- End Endpoint 1 --------------------------------------------
 
-    esp_zcl_utility_add_ep_basic_manufacturer_info(esp_zb_on_off_light_ep, HA_ESP_LIGHT_ENDPOINT, &info);
-    esp_zb_device_register(esp_zb_on_off_light_ep);
+    esp_zb_device_register(esp_zb_ep_list);
     esp_zb_core_action_handler_register(zb_action_handler);
     esp_zb_set_primary_network_channel_set(ESP_ZB_PRIMARY_CHANNEL_MASK);
     ESP_ERROR_CHECK(esp_zb_start(false));
     esp_zb_stack_main_loop();
 }
 
-static uint32_t servo_angle_to_duty(uint32_t angle) {
-    if (angle > SERVO_MAX_DEGREE) {
-        angle = SERVO_MAX_DEGREE;
-    }
-    uint32_t pulse_width = SERVO_MIN_PULSEWIDTH_US +
-        ((SERVO_MAX_PULSEWIDTH_US - SERVO_MIN_PULSEWIDTH_US) * angle) / SERVO_MAX_DEGREE;
-    return (pulse_width * 8191) / SERVO_PERIOD_US;
-}
-
-void init_servo(void) {
-    ledc_timer_config_t ledc_timer = {
-        .speed_mode       = LEDC_MODE,
-        .timer_num        = LEDC_TIMER,
-        .duty_resolution  = LEDC_DUTY_RES,
-        .freq_hz          = LEDC_FREQUENCY,
-        .clk_cfg          = LEDC_AUTO_CLK
-    };
-    ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
-
-    ledc_channel_config_t ledc_channel = {
-        .speed_mode     = LEDC_MODE,
-        .channel        = LEDC_CHANNEL,
-        .timer_sel      = LEDC_TIMER,
-        .intr_type      = LEDC_INTR_DISABLE,
-        .gpio_num       = SERVO_GPIO,
-        .duty           = servo_angle_to_duty(GATE_CLOSED_ANGLE), // Gate starts closed
-        .hpoint         = 0
-    };
-    ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
-}
-
-void open_gate(void) {
-    ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, servo_angle_to_duty(GATE_OPEN_ANGLE)));
-    ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
-}
-
-void close_gate(void) {
-    ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, servo_angle_to_duty(GATE_CLOSED_ANGLE)));
-    ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
-}
-
 void app_main(void) {
+    vTaskDelay(pdMS_TO_TICKS(5000));
+
+    i2c_driver_init_master();
+    lcd_driver_init();
+    servo_driver_init(0);
+#if CONFIG_SMART_GATE_EXIT
+    // nfc_driver_init();
+#endif
+
     esp_zb_platform_config_t config = {
         .radio_config = ESP_ZB_DEFAULT_RADIO_CONFIG(),
         .host_config = ESP_ZB_DEFAULT_HOST_CONFIG(),
@@ -193,18 +309,7 @@ void app_main(void) {
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_zb_platform_config(&config));
 
-    init_servo();
-
     xTaskCreate(esp_zb_task, "Zigbee_main", 4096, NULL, 5, NULL);
 
-    // test servo
-    while(1) {
-        ESP_LOGI(TAG, "Opening Gate (90 degrees)...");
-        open_gate();
-        vTaskDelay(pdMS_TO_TICKS(1000));
-
-        ESP_LOGI(TAG, "Closing Gate (0 degrees)...");
-        close_gate();
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
+    lcd_driver_clear();
 }

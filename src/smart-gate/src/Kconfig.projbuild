@@ -1,0 +1,39 @@
+menu "Smart Gate Configuration"
+
+    orsource "$IDF_PATH/examples/common_components/env_caps/$IDF_TARGET/Kconfig.env_caps"
+
+    choice SMART_GATE_ROLE
+        prompt "Smart gate role"
+
+        config SMART_GATE_ENTRY
+            bool "ENTRY"
+        config SMART_GATE_EXIT
+            bool "EXIT"
+    endchoice
+
+    menu "I2C Configuration"
+        config I2C_MASTER_SCL_GPIO
+            int "I2C SCL GPIO number"
+            range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+            default 7
+
+        config I2C_MASTER_SDA_GPIO
+            int "I2C SDA GPIO number"
+            range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+            default 5
+    endmenu
+
+    config SERVO_GPIO
+        int "Servo PWM GPIO number"
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+        default 8
+
+    config LCD_ADDR
+        int "I2C address of the LCD"
+        default 39  # 0x27
+
+    config NFC_ADDR
+        depends on SMART_GATE_EXIT
+        int "I2C address of the NFC reader"
+        default 36  # 0x24
+endmenu

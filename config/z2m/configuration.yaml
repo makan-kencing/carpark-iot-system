@@ -1,19 +1,44 @@
 version: 5
 permit_join: true
 serial:
-    port: /dev/ttyUSB0
-    baudrate: 115200
-    adapter: ember
-    rtscts: false
+  port: /dev/ttyACM0
+  baudrate: 115200
+  adapter: ember
+  rtscts: false
 mqtt:
-    server: mqtt://mqtt
-    base_topic: zigbee2mqtt
+  server: mqtt://mqtt
+  base_topic: zigbee2mqtt
 advanced:
-    channel: 11
-    network_key: GENERATE
-    pan_id: GENERATE
-    ext_pan_id: GENERATE
+  channel: 11
+  network_key:
+    - 37
+    - 158
+    - 81
+    - 4
+    - 216
+    - 93
+    - 219
+    - 156
+    - 103
+    - 136
+    - 161
+    - 54
+    - 80
+    - 184
+    - 150
+    - 71
+  pan_id: 17335
+  ext_pan_id:
+    - 114
+    - 69
+    - 89
+    - 226
+    - 178
+    - 212
+    - 243
+    - 151
 frontend:
-    enabled: true
+  enabled: true
 homeassistant:
-    enabled: true
+  enabled: true
+devices: {}

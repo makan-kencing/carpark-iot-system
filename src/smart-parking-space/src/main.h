@@ -1,18 +1,18 @@
-// /*
-//  * SPDX-FileCopyrightText: 2021-2024 Espressif Systems (Shanghai) CO LTD
-//  *
-//  * SPDX-License-Identifier:  LicenseRef-Included
-//  *
-//  * Zigbee HA_on_off_light Example
-//  *
-//  * This example code is in the Public Domain (or CC0 licensed, at your option.)
-//  *
-//  * Unless required by applicable law or agreed to in writing, this
-//  * software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-//  * CONDITIONS OF ANY KIND, either express or implied.
-//  */
+/*
+ * SPDX-FileCopyrightText: 2021-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier:  LicenseRef-Included
+ *
+ * Zigbee HA_on_off_light Example
+ *
+ * This example code is in the Public Domain (or CC0 licensed, at your option.)
+ *
+ * Unless required by applicable law or agreed to in writing, this
+ * software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied.
+ */
 #include "esp_zigbee_core.h"
-// #include "light_driver.h"
+#include "light_driver.h"
 
 /* Zigbee configuration */
 #define INSTALLCODE_POLICY_ENABLE       false                                /* enable the install code policy for security */
@@ -21,9 +21,14 @@
 #define HA_ESP_LIGHT_ENDPOINT           10                                   /* esp light bulb device endpoint, used to process light controlling commands */
 #define ESP_ZB_PRIMARY_CHANNEL_MASK     ESP_ZB_TRANSCEIVER_ALL_CHANNELS_MASK /* Zigbee primary channel mask use in the example */
 
-/* Basic manufacturer information */
-#define ESP_MANUFACTURER_NAME "\x09""ESPRESSIF"      /* Customized manufacturer name */
-#define ESP_MODEL_IDENTIFIER "\x07"CONFIG_IDF_TARGET /* Customized model identifier */
+#define MANUFACTURER_NAME               "\x09""ESPRESSIF"
+#define MODEL_IDENTIFIER                "\x04""SPS3"
+#define APP_PROFILE_ID                  ESP_ZB_AF_HA_PROFILE_ID
+#define POWER_SOURCE                    1                                     /* 0x01     ==  External power supply                   */
+
+#define HA_ESP_ENDPOINT                 1
+#define HA_ANALOG_INPUT_TOTAL_ATTR      0x0000
+#define HA_ANALOG_INPUT_REMAINING_ATTR  0x0001
 
 #define ESP_ZB_ZED_CONFIG()                                         \
     {                                                               \
@@ -44,4 +49,3 @@
     {                                                           \
         .host_connection_mode = ZB_HOST_CONNECTION_MODE_NONE,   \
     }
-
