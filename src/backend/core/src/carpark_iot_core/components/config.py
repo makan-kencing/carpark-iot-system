@@ -24,7 +24,7 @@ class ParkingSpaceIndicatorConfig(ComponentConfig[ParkingSpaceIndicator]):
     g: int
     dp: int
 
-    pins: tuple[int, ...]
+    pins: Sequence[int]
 
     red: int
     amber: int
@@ -35,7 +35,7 @@ class ParkingSpaceIndicatorConfig(ComponentConfig[ParkingSpaceIndicator]):
         return ParkingSpaceIndicator(
             LEDMultiCharDisplay(
                 LEDCharDisplay(self.a, self.b, self.c, self.d, self.e, self.f, self.g, dp=self.dp),
-                self.pins
+                *self.pins
             ),
             TrafficLights(self.red, self.amber, self.green)
         )
