@@ -2,7 +2,7 @@
 name = "carpark-iot-backend"
 version = "0.1.0"
 description = ""
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
     "carpark-iot-core",
     "carpark-iot-api"
