@@ -22,6 +22,8 @@
 #include "driver/i2c.h"
 #include <string.h>
 #include <ultrasonic.h>
+#include <stdio.h>
+#include <stdbool.h>
 
 #if !defined ZB_ED_ROLE
 #error Define ZB_ED_ROLE in idf.py menuconfig to compile light (End Device) source code.
@@ -311,6 +313,11 @@ static void parking_ultrasonic_sensor(void* pvParameters) {
 
 
 void app_main(void) {
+    gpio_set_direction(LED_RED_GPIO, GPIO_MODE_OUTPUT);
+    gpio_set_direction(LED_GREEN_GPIO, GPIO_MODE_OUTPUT);
+
+    gpio_set_level(LED_RED_GPIO, 0);
+    gpio_set_level(LED_GREEN_GPIO, 1);
     vTaskDelay(pdMS_TO_TICKS(5000));
 
     esp_zb_platform_config_t config = {
