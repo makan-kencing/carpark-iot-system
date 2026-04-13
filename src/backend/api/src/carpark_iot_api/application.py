@@ -14,8 +14,6 @@ def create_app() -> FastAPI:
     settings = CarparkSettings()  # noqa
     settings.firebase.auth()
 
-    container.config.from_pydantic(settings)  # noqa
-
     db = AsyncDatabase(db_url=settings.db.connection_url.get_secret_value())
 
     carpark = Carpark(
