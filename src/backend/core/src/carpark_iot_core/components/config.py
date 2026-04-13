@@ -24,7 +24,7 @@ class ParkingSpaceIndicatorConfig(ComponentConfig[ParkingSpaceIndicator]):
     g: int
     dp: int
 
-    pins: tuple[int]
+    pins: tuple[int, ...]
 
     red: int
     amber: int
