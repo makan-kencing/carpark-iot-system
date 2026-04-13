@@ -53,6 +53,7 @@ class Carpark:
             price_per_hour: Decimal
     ):
         self.db = db
+        self.camera = LicensePlateCamera(self.on_license_plate)
         self.parking_space_counter = parking_space_indicator
         self.free_grace_period = free_grace_period
         self.price_per_hour = price_per_hour

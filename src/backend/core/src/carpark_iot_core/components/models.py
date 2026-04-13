@@ -100,6 +100,7 @@ class LicensePlateCamera(Component):
         self._camera = Picamera2()
         self._camera.configure(
             self._camera.create_preview_configuration({"size": (1024, 768)}, controls={"FrameRate": 15}))
+        self._camera.start_preview()
         self._camera.start()
 
         self._camera.post_callback = self.draw_texts
