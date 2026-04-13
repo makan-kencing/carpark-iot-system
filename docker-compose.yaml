@@ -38,13 +38,11 @@ services:
             DB__NAME: postgres
             DB__USER: ${DB_USER}
             DB__PASSWORD: ${DB_PASSWORD}
-            FIREBASE__API_KEY: ${FIREBASE_API_KEY}
-            FIREBASE__AUTH_DOMAIN: ${FIREBASE_AUTH_DOMAIN}
+            FIREBASE__SERVICE_ACCOUNT_PATH: /run/secrets/firebase_service_account
             FIREBASE__DB_URL: ${FIREBASE_DB_URL}
             FIREBASE__STORAGE_BUCKET_URL: ${FIREBASE_STORAGE_BUCKET_URL}
-            FIREBASE__AUTH__TYPE: email
-            FIREBASE__AUTH__EMAIL: ${FIREBASE_EMAIL}
-            FIREBASE__AUTH__PASSWORD: ${FIREBASE_PASSWORD}
+        secrets:
+            - firebase_service_account
         volumes:
             - ./config/carpark:/config.toml
             - /run/udev:/run/udev:ro
@@ -107,3 +105,7 @@ services:
         environment:
             GF_SERVER_ROOT_URL: grafana.${HOSTNAME}
             GF_PLUGINS_PREINSTALL: grafana-clock-panel
+
+secrets:
+    firebase_service_account:
+        file: ./secrets/firebase-service-account.json

@@ -13,7 +13,7 @@ dependencies = [
     "sqlalchemy",
     "sqlalchemy-timescaledb",
     "asyncpg",
-    "pyrebase"
+    "firebase-admin"
 ]
 
 [build-system]

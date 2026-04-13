@@ -4,13 +4,13 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, cast, Callable
+from typing import Any, cast
 
 from paho.mqtt.client import Client, ConnectFlags, MQTTMessage
 from paho.mqtt.enums import CallbackAPIVersion
 from paho.mqtt.properties import Properties
 from paho.mqtt.reasoncodes import ReasonCode
-from pyrebase.pyrebase import Firebase
+from firebase_admin import db as firebase_db
 from sqlalchemy import select
 
 from carpark_iot_core.components.models import ParkingSpaceIndicator, SmartGate, SmartParkingSpace, \
@@ -47,22 +47,17 @@ class Carpark:
             db: AsyncDatabase,
             mqtt_host: str,
             mqtt_port: int,
-            firebase_client: Firebase,
-            firebase_refresh: Callable[[Firebase], None],
             parking_space_indicator: ParkingSpaceIndicator,
             *,
             free_grace_period: int,
             price_per_hour: Decimal
     ):
         self.db = db
-        self.firebase_client = firebase_client
-        self.firebase_refresh = firebase_refresh
         self.parking_space_counter = parking_space_indicator
         self.free_grace_period = free_grace_period
         self.price_per_hour = price_per_hour
 
-        self.firebase_refresh(self.firebase_client)
-
+        self.firebase_db = firebase_db.reference("/")
         self.mqtt_client = Client(CallbackAPIVersion.VERSION2)
         self.mqtt_client.on_connect = self.on_mqtt_connect
         self.mqtt_client.on_message = self.on_mqtt_message
@@ -176,6 +171,14 @@ class Carpark:
             session.add(entry)
             await session.commit()
 
+            self.firebase_db.child("entry").set({
+                "timestamp": entry.timestamp.isoformat(),
+                "license_plate": entry.license_plate,
+                "gate_id": entry.gate_id,
+                "type": entry.type.name,
+                "price": entry.price
+            })
+
 
     async def handle_car(self, license_plate: str) -> None:
         stmt = select(Entry) \
@@ -184,28 +187,44 @@ class Carpark:
             .limit(1)
 
         async with self.db.session as session:
-            entry: Entry | None = (await session.execute(stmt)).scalar_one_or_none()
+            last_entry: Entry | None = (await session.execute(stmt)).scalar_one_or_none()
 
-            match entry.type:
-                case Entry.EntryType.Entry:
-                    price = self.calculate_price(entry.timestamp)  # noqa
 
-                    gate = cast(SmartGate, self.mqtt_components[self._exit_gate_id])
-                    if price.is_zero():
-                        asyncio.create_task(gate.open_and_close(5, f"Thank you!\nCar: {self.checkout.license_plate}"))
+            if last_entry is None or last_entry.type is Entry.EntryType.Exit:
+                gate = cast(SmartGate, self.mqtt_components[self._entry_gate_id])
+                asyncio.create_task(gate.open_and_close(5, f"Welcome\nCar: {license_plate}"))
 
-                        entry = Entry(license_plate=license_plate, gate_id=gate.id, type=Entry.EntryType.Exit,
-                                      price=price)
-                        session.add(entry)
-                        await session.commit()
-                    else:
-                        gate.display(f"Car: {license_plate}\nPrice: ${price}")
+                entry = Entry(license_plate=license_plate, gate_id=gate.id, type=Entry.EntryType.Entry)
+                session.add(entry)
+                await session.commit()
 
-                        self.checkout = CheckoutStatus(license_plate, price)
-                case Entry.EntryType.Exit | None:
-                    gate = cast(SmartGate, self.mqtt_components[self._entry_gate_id])
-                    asyncio.create_task(gate.open_and_close(5, f"Welcome\nCar: {license_plate}"))
+                self.firebase_db.child("entry").set({
+                    "timestamp": entry.timestamp.isoformat(),
+                    "license_plate": entry.license_plate,
+                    "gate_id": entry.gate_id,
+                    "type": entry.type.name,
+                    "price": entry.price
+                })
+            else:
+                price = self.calculate_price(entry.timestamp)  # noqa
 
-                    entry = Entry(license_plate=license_plate, gate_id=gate.id, type=Entry.EntryType.Entry)
+                gate = cast(SmartGate, self.mqtt_components[self._exit_gate_id])
+                if price.is_zero():
+                    asyncio.create_task(gate.open_and_close(5, f"Thank you!\nCar: {self.checkout.license_plate}"))
+
+                    entry = Entry(license_plate=license_plate, gate_id=gate.id, type=Entry.EntryType.Exit,
+                                  price=price)
                     session.add(entry)
                     await session.commit()
+
+                    self.firebase_db.child("entry").set({
+                        "timestamp": entry.timestamp.isoformat(),
+                        "license_plate": entry.license_plate,
+                        "gate_id": entry.gate_id,
+                        "type": entry.type.name,
+                        "price": entry.price
+                    })
+                else:
+                    gate.display(f"Car: {license_plate}\nPrice: ${price}")
+
+                    self.checkout = CheckoutStatus(license_plate, price)

@@ -1,12 +1,11 @@
 import os
-from abc import abstractmethod, ABC
 from decimal import Decimal
-from typing import override, Literal
+from typing import override
 
-import pyrebase
-from pydantic import SecretStr, Field
+import firebase_admin
+from firebase_admin import credentials
+from pydantic import SecretStr, FilePath
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, TomlConfigSettingsSource, SettingsConfigDict
-from pyrebase.pyrebase import Firebase
 
 from carpark_iot_core.components.config import ParkingSpaceIndicatorConfig
 
@@ -31,50 +30,18 @@ class DatabaseSettings(BaseSettings):
         )
 
 
-class FirebaseAuthSettings(BaseSettings, ABC):
-    type: str
-
-    @abstractmethod
-    def authenticate(self, firebase: Firebase) -> dict:
-        raise NotImplementedError
-
-
-class FirebaseEmailPasswordAuthSettings(FirebaseAuthSettings):
-    type: Literal["email"] = "email"
-    email: str
-    password: SecretStr
-
-    @override
-    def authenticate(self, firebase: Firebase) -> dict:
-        user = firebase.auth().sign_in_with_email_and_password(self.email, self.password.get_secret_value())
-        return user
-
-
-class FirebaseCustomTokenAuthSettings(FirebaseAuthSettings):
-    type: Literal["token"] = "token"
-    token: SecretStr
-
-    @override
-    def authenticate(self, firebase: Firebase) -> dict:
-        user = firebase.auth().sign_in_with_custom_token(self.token.get_secret_value())
-        return user
-
-
 class FirebaseSettings(BaseSettings):
-    api_key: SecretStr
+    service_account_path: FilePath
     auth_domain: str
     db_url: str
     storage_bucket_url: str
-    auth: FirebaseEmailPasswordAuthSettings | FirebaseCustomTokenAuthSettings = Field(discriminator="type")
 
-    def create_firebase(self) -> Firebase:
-        config = {
-            "apiKey": self.api_key.get_secret_value(),
-            "authDomain": self.auth_domain,
+    def auth(self) -> None:
+        cert = credentials.Certificate(str(self.service_account_path))
+        firebase_admin.initialize_app(cert, {
             "databaseURL": self.db_url,
             "storageBucket": self.storage_bucket_url
-        }
-        return pyrebase.initialize_app(config)
+        })
 
 
 class CarparkSettings(BaseSettings):
@@ -110,9 +77,6 @@ class CarparkSettings(BaseSettings):
 __all__ = (
     "MqttConfig",
     "DatabaseSettings",
-    "FirebaseAuthSettings",
-    "FirebaseEmailPasswordAuthSettings",
-    "FirebaseCustomTokenAuthSettings",
     "FirebaseSettings",
     "CarparkSettings"
 )
