@@ -15,6 +15,8 @@ class Entry(Base):
         Entry = auto()
         Exit = auto()
 
+    __tablename__ = "entry"
+
     timestamp: Mapped[datetime] = mapped_column(DateTime(), default=datetime.now, primary_key=True)
     license_plate: Mapped[str] = mapped_column(String(20))
     gate_id: Mapped[str] = mapped_column(String(20))
