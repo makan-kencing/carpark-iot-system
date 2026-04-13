@@ -16,7 +16,7 @@ class SmartParkingSpaceInput(BaseModel):
     total: int
     remaining: int
 
-    def update(self, o: SmartParkingSpace) -> None:
+    def update(self, o: "SmartParkingSpace") -> None:
         o.total = self.total
         o.remaining = self.remaining
 
