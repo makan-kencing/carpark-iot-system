@@ -13,7 +13,6 @@ def create_app() -> FastAPI:
     settings.firebase.auth()
 
     container.config.from_pydantic(settings)
-    container.config.db.connection_url = settings.db.connection_url
     container.carpark()  # noqa
 
     app = FastAPI()
