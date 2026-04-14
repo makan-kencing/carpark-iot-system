@@ -2,9 +2,6 @@ services:
     db:
         ports:
             - "5432:5432"
-    api:
-        ports:
-            - "8080:8080"
     mqtt:
         ports:
             - "1883:1883"
