@@ -627,6 +627,36 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
+# Smart Parking Space Configuration
+#
+CONFIG_ENV_GPIO_RANGE_MIN=0
+CONFIG_ENV_GPIO_RANGE_MAX=30
+CONFIG_ENV_GPIO_IN_RANGE_MAX=30
+CONFIG_ENV_GPIO_OUT_RANGE_MAX=30
+
+#
+# LED Configuration
+#
+CONFIG_GREEN_LED_GPIO=12
+CONFIG_RED_LED_GPIO=11
+# end of LED Configuration
+
+#
+# Ultrasonic Configuration
+#
+CONFIG_TRIGGER_GPIO=0
+
+#
+# Echo GPIO
+#
+CONFIG_ECHO_GPIO_1=7
+CONFIG_ECHO_GPIO_2=6
+CONFIG_ECHO_GPIO_3=5
+# end of Echo GPIO
+# end of Ultrasonic Configuration
+# end of Smart Parking Space Configuration
+
+#
 # Compiler options
 #
 CONFIG_COMPILER_OPTIMIZATION_DEBUG=y

@@ -1,4 +1,44 @@
 dependencies:
+  esp-idf-lib/esp_idf_lib_helpers:
+    component_hash: 689853bb8993434f9556af0f2816e808bf77b5d22100144b21f3519993daf237
+    dependencies: []
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    targets:
+    - esp32
+    - esp32c2
+    - esp32c3
+    - esp32c5
+    - esp32c6
+    - esp32c61
+    - esp32h2
+    - esp32p4
+    - esp32s2
+    - esp32s3
+    version: 1.4.0
+  esp-idf-lib/ultrasonic:
+    component_hash: ed5d2a566151e9254a4a673fcf566e163e4f5252967db4d76accc41d42459cb6
+    dependencies:
+    - name: esp-idf-lib/esp_idf_lib_helpers
+      registry_url: https://components.espressif.com
+      require: private
+      version: '*'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    targets:
+    - esp32
+    - esp32c2
+    - esp32c3
+    - esp32c5
+    - esp32c6
+    - esp32c61
+    - esp32h2
+    - esp32p4
+    - esp32s2
+    - esp32s3
+    version: 1.0.7
   espressif/esp-zboss-lib:
     component_hash: 321883d142421f65009972408287441794250057668a11abbdfd8bec77c3309a
     dependencies:
@@ -24,9 +64,10 @@ dependencies:
       type: idf
     version: 5.5.0
 direct_dependencies:
+- esp-idf-lib/ultrasonic
 - espressif/esp-zboss-lib
 - espressif/esp-zigbee-lib
 - idf
-manifest_hash: 28df6d1d00b03e2d04dabe1513985bfbbfec79d0338eb296d7471499e05a142d
+manifest_hash: 2180cb22610ea76acfe9abaec985ab6fdd4147c4a3c25ee7634de83f634dcba7
 target: esp32c6
 version: 2.0.0

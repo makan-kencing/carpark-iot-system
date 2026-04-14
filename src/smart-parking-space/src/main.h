@@ -11,8 +11,9 @@
  * software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
  * CONDITIONS OF ANY KIND, either express or implied.
  */
+#pragma once
+
 #include "esp_zigbee_core.h"
-#include "light_driver.h"
 
 /* Zigbee configuration */
 #define INSTALLCODE_POLICY_ENABLE       false                                /* enable the install code policy for security */

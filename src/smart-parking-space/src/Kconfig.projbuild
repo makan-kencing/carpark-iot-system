@@ -1,0 +1,40 @@
+menu "Smart Parking Space Configuration"
+
+    orsource "$IDF_PATH/examples/common_components/env_caps/$IDF_TARGET/Kconfig.env_caps"
+
+    menu "LED Configuration"
+        config GREEN_LED_GPIO
+            int "Green LED GPIO number"
+            range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+            default 12
+
+        config RED_LED_GPIO
+            int "Red LED GPIO number"
+            range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+            default 13
+    endmenu
+
+    menu "Ultrasonic Configuration"
+        config TRIGGER_GPIO
+            int "Ultrasonic Trigger GPIO number"
+            range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+            default 4
+
+        menu "Echo GPIO"
+            config ECHO_GPIO_1
+                int "Ultrasonic 1 Echo GPIO number"
+                range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+                default 7
+
+            config ECHO_GPIO_2
+                int "Ultrasonic 2 Echo GPIO number"
+                range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+                default 10
+
+            config ECHO_GPIO_3
+                int "Ultrasonic 3 Echo GPIO number"
+                range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+                default 5
+        endmenu
+    endmenu
+endmenu
