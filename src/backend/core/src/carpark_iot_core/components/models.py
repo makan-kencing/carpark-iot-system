@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from threading import Thread
 from typing import Callable
 
+import numpy as np
 from fast_alpr import ALPR
 from gpiozero import LEDMultiCharDisplay, TrafficLights
 from paho.mqtt.client import Client
@@ -99,7 +100,7 @@ class LicensePlateCamera(Component):
 
         self._camera = Picamera2()
         self._camera.configure(
-            self._camera.create_preview_configuration({"size": (1024, 768)}, controls={"FrameRate": 15}))
+            self._camera.create_preview_configuration({"size": (1024, 768)}, controls={"FrameRate": 10}))
         self._camera.start_preview(Preview.QTGL)
         self._camera.start()
 
@@ -108,9 +109,12 @@ class LicensePlateCamera(Component):
         self._thread = threading.Thread(target=self.on_frame)
 
     def on_frame(self):
-        image = self._camera.capture_array()
+        stream = self._camera.capture_array()
+        w, h, _ = stream.shape
 
-        results = alpr.predict(image)
+        frame = np.frombuffer(stream, dtype=np.uint8, count=w * h).reshape(h, w)
+
+        results = alpr.predict(frame)
         if not results:
             return
 
@@ -120,7 +124,7 @@ class LicensePlateCamera(Component):
     @staticmethod
     def draw_texts(request):
         with MappedArray(request, "main") as m:
-            alpr.draw_predictions(m.array)
+            alpr.draw_predictions(m.array)  # noqa
 
 
 __all__ = (
