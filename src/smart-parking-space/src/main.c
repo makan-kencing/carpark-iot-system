@@ -31,8 +31,8 @@
 #error Define ZB_ED_ROLE in idf.py menuconfig to compile light (End Device) source code.
 #endif
 
-static const uint8_t total_space = 3;
-static uint8_t remaining_space = total_space;
+#define TOTAL_SPACE 3
+static uint8_t remaining_space = TOTAL_SPACE;
 
 static ultrasonic_t sensors[3] = {
     {{.trigger_pin = CONFIG_TRIGGER_GPIO, .echo_pin = CONFIG_ECHO_GPIO_1}, false, 0},
@@ -99,104 +99,67 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_s) {
     }
 }
 
-static esp_err_t zb_read_attr_resp_handler(const esp_zb_zcl_cmd_read_attr_resp_message_t *message) {
-    ESP_RETURN_ON_FALSE(message, ESP_FAIL, TAG, "Empty message");
-    ESP_RETURN_ON_FALSE(message->info.status == ESP_ZB_ZCL_STATUS_SUCCESS, ESP_ERR_INVALID_ARG, TAG,
-                        "Received message: error status(%d)",
-                        message->info.status);
-
-    const esp_zb_zcl_read_attr_resp_variable_t *variable = message->variables;
-    while (variable) {
-        ESP_LOGI(TAG, "Read attribute response: status(%d), cluster(0x%x), attribute(0x%x), type(0x%x), value(%d)",
-                 variable->status,
-                 message->info.cluster, variable->attribute.id, variable->attribute.data.type,
-                 variable->attribute.data.value ? *(uint8_t *)variable->attribute.data.value : 0);
-        variable = variable->next;
-    }
-
-    return ESP_OK;
-}
-
-static esp_err_t zb_configure_report_resp_handler(const esp_zb_zcl_cmd_config_report_resp_message_t *message) {
-    ESP_RETURN_ON_FALSE(message, ESP_FAIL, TAG, "Empty message");
-    ESP_RETURN_ON_FALSE(message->info.status == ESP_ZB_ZCL_STATUS_SUCCESS, ESP_ERR_INVALID_ARG, TAG,
-                        "Received message: error status(%d)",
-                        message->info.status);
-
-    const esp_zb_zcl_config_report_resp_variable_t *variable = message->variables;
-    while (variable) {
-        ESP_LOGI(TAG, "Configure report response: status(%d), cluster(0x%x), attribute(0x%x)", message->info.status,
-                 message->info.cluster,
-                 variable->attribute_id);
-        variable = variable->next;
-    }
-
-    return ESP_OK;
-}
-
-static esp_err_t zb_action_handler(const esp_zb_core_action_callback_id_t callback_id, const void *message) {
-    esp_err_t ret = ESP_OK;
-    switch (callback_id) {
-        case ESP_ZB_CORE_CMD_READ_ATTR_RESP_CB_ID:
-            ret = zb_read_attr_resp_handler((esp_zb_zcl_cmd_read_attr_resp_message_t *) message);
-            break;
-
-        case ESP_ZB_CORE_CMD_REPORT_CONFIG_RESP_CB_ID:
-            ret = zb_configure_report_resp_handler((esp_zb_zcl_cmd_config_report_resp_message_t *) message);
-            break;
-
-        default:
-            ESP_LOGW(TAG, "Receive Zigbee action(0x%x) callback", callback_id);
-            break;
-    }
-    return ret;
-}
-
 static void esp_zb_task(void *pvParameters) {
-    uint8_t uint8_tmp;
-
     /* initialize Zigbee stack */
     esp_zb_cfg_t zb_nwk_cfg = ESP_ZB_ZED_CONFIG();
     esp_zb_init(&zb_nwk_cfg);
 
     esp_zb_ep_list_t *esp_zb_ep_list = esp_zb_ep_list_create();
 
+    esp_zb_temperature_sensor_cfg_t sensor_cfg = ESP_ZB_DEFAULT_TEMPERATURE_SENSOR_CONFIG();
+    /* Set (Min|Max)MeasuredValure */
+    sensor_cfg.temp_meas_cfg.min_value = 0;
+    sensor_cfg.temp_meas_cfg.max_value = TOTAL_SPACE * 100;
+
     // --------------------------------- Endpoint 1 -- Basic Cluster -------------------------------------
     /* basic cluster */
-    esp_zb_attribute_list_t *esp_zb_basic_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_BASIC);;
+    esp_zb_attribute_list_t *esp_zb_basic_cluster = esp_zb_basic_cluster_create(&sensor_cfg.basic_cfg);;
     esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID, MANUFACTURER_NAME);
     esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID, MODEL_IDENTIFIER);
 
-    esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_ZCL_VERSION_ID, &uint8_tmp);
-    esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_POWER_SOURCE_ID, &uint8_tmp);
-
     /* identify cluster */
     esp_zb_attribute_list_t *esp_zb_identify_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_IDENTIFY);
-    esp_zb_identify_cluster_add_attr(esp_zb_identify_cluster, ESP_ZB_ZCL_ATTR_IDENTIFY_IDENTIFY_TIME_ID, &uint8_tmp);
 
-    /* control cluster */
-    esp_zb_attribute_list_t *cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_ANALOG_INPUT);
-    esp_zb_analog_input_cluster_add_attr(cluster, HA_ANALOG_INPUT_TOTAL_ATTR, (void *) &total_space);
-    esp_zb_analog_input_cluster_add_attr(cluster, HA_ANALOG_INPUT_REMAINING_ATTR, &remaining_space);
+    /* Create customized temperature sensor endpoint */
+    esp_zb_attribute_list_t *temperature_cluster = esp_zb_temperature_meas_cluster_create(&sensor_cfg.temp_meas_cfg);
+    esp_zb_attribute_list_t *temperature_identify_cluster = esp_zb_identify_cluster_create(&sensor_cfg.identify_cfg);
 
     /* create cluster lists for this endpoint */
     esp_zb_cluster_list_t *esp_zb_cluster_list = esp_zb_zcl_cluster_list_create();
     esp_zb_cluster_list_add_basic_cluster(esp_zb_cluster_list, esp_zb_basic_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
-    esp_zb_cluster_list_add_identify_cluster(esp_zb_cluster_list, esp_zb_identify_cluster,
-                                             ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
-    esp_zb_cluster_list_add_custom_cluster(esp_zb_cluster_list, cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
+    esp_zb_cluster_list_add_identify_cluster(esp_zb_cluster_list, esp_zb_identify_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
+    esp_zb_cluster_list_add_identify_cluster(esp_zb_cluster_list, temperature_identify_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
+    esp_zb_cluster_list_add_temperature_meas_cluster(esp_zb_cluster_list, temperature_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
 
     const esp_zb_endpoint_config_t endpoint_config = {
         .endpoint = HA_ESP_ENDPOINT,
         .app_profile_id = APP_PROFILE_ID,
-        .app_device_id = ESP_ZB_HA_CUSTOM_ATTR_DEVICE_ID,
+        .app_device_id = ESP_ZB_HA_TEMPERATURE_SENSOR_DEVICE_ID,
         .app_device_version = 0
     };
     esp_zb_ep_list_add_ep(esp_zb_ep_list, esp_zb_cluster_list, endpoint_config);
     // --------------------------------------- End Endpoint 1 --------------------------------------------
 
     esp_zb_device_register(esp_zb_ep_list);
-    esp_zb_core_action_handler_register(zb_action_handler);
+
+    /* Config the reporting info  */
+    esp_zb_zcl_reporting_info_t reporting_info = {
+        .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_SRV,
+        .ep = HA_ESP_ENDPOINT,
+        .cluster_id = ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT,
+        .cluster_role = ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+        .dst.profile_id = ESP_ZB_AF_HA_PROFILE_ID,
+        .u.send_info.min_interval = 1,
+        .u.send_info.max_interval = 0,
+        .u.send_info.def_min_interval = 1,
+        .u.send_info.def_max_interval = 0,
+        .u.send_info.delta.u16 = 100,
+        .attr_id = ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID,
+        .manuf_code = ESP_ZB_ZCL_ATTR_NON_MANUFACTURER_SPECIFIC,
+    };
+
+    esp_zb_zcl_update_reporting_info(&reporting_info);
+
     esp_zb_set_primary_network_channel_set(ESP_ZB_PRIMARY_CHANNEL_MASK);
     ESP_ERROR_CHECK(esp_zb_start(false));
     esp_zb_stack_main_loop();
@@ -240,12 +203,38 @@ static void sensor_main(void *pvParameters) {
 
                 ESP_ERROR_CHECK(gpio_set_level(CONFIG_RED_LED_GPIO, 1));
                 ESP_ERROR_CHECK(gpio_set_level(CONFIG_GREEN_LED_GPIO, 0));
+
             } else {
                 ESP_LOGI(TAG, "SPACE AVAILABLE");
 
                 ESP_ERROR_CHECK(gpio_set_level(CONFIG_RED_LED_GPIO, 0));
                 ESP_ERROR_CHECK(gpio_set_level(CONFIG_GREEN_LED_GPIO, 1));
             }
+
+            int16_t measured_value = (int16_t) remaining_space * 100;
+
+            esp_zb_lock_acquire(portMAX_DELAY);
+            esp_zb_zcl_set_attribute_val(
+                HA_ESP_ENDPOINT,
+                ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT,
+                ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+                ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID,
+                &measured_value,
+                false
+            );
+            esp_zb_lock_release();
+
+            esp_zb_zcl_report_attr_cmd_t report_attr_cmd = {0};
+            report_attr_cmd.address_mode = ESP_ZB_APS_ADDR_MODE_DST_ADDR_ENDP_NOT_PRESENT;
+            report_attr_cmd.attributeID = ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID;
+            report_attr_cmd.direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_CLI;
+            report_attr_cmd.clusterID = ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT;
+            report_attr_cmd.zcl_basic_cmd.src_endpoint = HA_ESP_ENDPOINT;
+
+            esp_zb_lock_acquire(portMAX_DELAY);
+            esp_zb_zcl_report_attr_cmd_req(&report_attr_cmd);
+            esp_zb_lock_release();
+            ESP_EARLY_LOGI(TAG, "Send 'report attributes' command");
         }
 
         vTaskDelay(pdMS_TO_TICKS(200));

@@ -28,8 +28,6 @@
 #define POWER_SOURCE                    1                                     /* 0x01     ==  External power supply                   */
 
 #define HA_ESP_ENDPOINT                 1
-#define HA_ANALOG_INPUT_TOTAL_ATTR      0x0000
-#define HA_ANALOG_INPUT_REMAINING_ATTR  0x0001
 
 #define ESP_ZB_ZED_CONFIG()                                         \
     {                                                               \
