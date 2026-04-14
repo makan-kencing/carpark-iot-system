@@ -47,6 +47,7 @@ async def index(request: Request):
 
 
 @router.get("/entry")
+@inject
 async def get_entries(
         db: Annotated[AsyncDatabase,
         Depends(Provide[ApplicationContainer.db])],
@@ -69,7 +70,8 @@ async def get_entries_stream(request: Request) -> AsyncIterable[Entry]:
         async with state.condition:
             await state.condition.wait()
 
-        yield state.entry
+        if state.entry is not None:
+            yield state.entry
 
 
 __all__ = (
