@@ -23,6 +23,28 @@ menu "Smart Gate Configuration"
             default 5
     endmenu
 
+    menu "SPI Configuration"
+        config SPI_MISO_GPIO
+            int "SPI MISO GPIO number"
+            range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+            default 19
+
+        config SPI_MOSI_GPIO
+            int "SPI MOSI GPIO number"
+            range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+            default 18
+
+        config SPI_SCLK_GPIO
+            int "SPI SCLK GPIO number"
+            range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+            default 20
+
+        config SPI_RST_GPIO
+            int "SPI RST GPIO number"
+            range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+            default 21
+    endmenu
+
     config SERVO_GPIO
         int "Servo PWM GPIO number"
         range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
@@ -32,8 +54,8 @@ menu "Smart Gate Configuration"
         int "I2C address of the LCD"
         default 39  # 0x27
 
-    config NFC_ADDR
+    config RC522_SPICS_GPIO
         depends on SMART_GATE_EXIT
-        int "I2C address of the NFC reader"
-        default 36  # 0x24
+        int "SPI SPICS GPIO of the rc522 reader"
+        default 21
 endmenu
