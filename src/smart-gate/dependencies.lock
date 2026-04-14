@@ -1,4 +1,14 @@
 dependencies:
+  abobija/rc522:
+    component_hash: 041887e58a81f8261aa370bd5f62b54edfe0396e226fb565ae14ce41af0ad891
+    dependencies:
+    - name: idf
+      require: private
+      version: ^5.0
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 3.4.3
   espressif/esp-zboss-lib:
     component_hash: 321883d142421f65009972408287441794250057668a11abbdfd8bec77c3309a
     dependencies:
@@ -22,11 +32,12 @@ dependencies:
   idf:
     source:
       type: idf
-    version: 5.5.0
+    version: 5.5.3
 direct_dependencies:
+- abobija/rc522
 - espressif/esp-zboss-lib
 - espressif/esp-zigbee-lib
 - idf
-manifest_hash: 28df6d1d00b03e2d04dabe1513985bfbbfec79d0338eb296d7471499e05a142d
+manifest_hash: 8d953a7d0d217040858dfc68e15a5e015a821c357b99df7f92d81d614daeccb5
 target: esp32c6
 version: 2.0.0

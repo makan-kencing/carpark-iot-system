@@ -26,6 +26,10 @@
 #include "lcd_driver.h"
 #include "servo_driver.h"
 
+#include "rc522.h"
+#include "driver/rc522_spi.h"
+#include "rc522_picc.h"
+
 #if !defined ZB_ED_ROLE
 #error Define ZB_ED_ROLE in idf.py menuconfig to compile light (End Device) source code.
 #endif
@@ -45,6 +49,22 @@ static esp_err_t deferred_driver_init(void) {
 static void bdb_start_top_level_commissioning_cb(uint8_t mode_mask) {
     ESP_RETURN_ON_FALSE(esp_zb_bdb_start_top_level_commissioning(mode_mask) == ESP_OK, , TAG,
                         "Failed to start Zigbee commissioning");
+}
+
+static void on_picc_state_changed(void *arg, esp_event_base_t base, int32_t event_id, void *data) {
+    rc522_picc_state_changed_event_t *event = (rc522_picc_state_changed_event_t *)data;
+    rc522_picc_t *picc = event->picc;
+
+    if (picc->state == RC522_PICC_STATE_ACTIVE) {
+        // Card is detected and active
+        ESP_LOGI(TAG, "Card detected!");
+
+        // Print card information
+        rc522_picc_print(picc);
+    }
+    else if (picc->state == RC522_PICC_STATE_IDLE && event->old_state >= RC522_PICC_STATE_ACTIVE) {
+        ESP_LOGI(TAG, "Card removed");
+    }
 }
 
 void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct) {
@@ -292,6 +312,67 @@ static void esp_zb_task(void *pvParameters) {
     esp_zb_stack_main_loop();
 }
 
+static void rc522_setup_task(void *pvParameter) {
+    esp_err_t ret;
+    rc522_driver_handle_t driver;
+    rc522_handle_t scanner;
+
+    rc522_spi_config_t driver_config = {
+        .host_id = SPI2_HOST,
+        .bus_config = &(spi_bus_config_t){
+            .miso_io_num = 19,
+            .mosi_io_num = 18,
+            .sclk_io_num = 20,
+        },
+        .dev_config = {
+            .spics_io_num = 21,
+            .clock_speed_hz = 1000000,
+        },
+        .rst_io_num = 22,
+    };
+
+    // Create Driver
+    ret = rc522_spi_create(&driver_config, &driver);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create SPI driver: %s", esp_err_to_name(ret));
+        vTaskDelete(NULL); // Delete task on failure
+        return;
+    }
+
+    // Install Driver
+    ret = rc522_driver_install(driver);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to install driver: %s", esp_err_to_name(ret));
+        vTaskDelete(NULL);
+        return;
+    }
+
+    rc522_config_t scanner_config = {
+        .driver = driver,
+        .poll_interval_ms = 125,
+    };
+
+    // Create Scanner
+    ret = rc522_create(&scanner_config, &scanner);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create scanner: %s", esp_err_to_name(ret));
+        vTaskDelete(NULL);
+        return;
+    }
+
+    // Register Events
+    rc522_register_events(scanner, RC522_EVENT_PICC_STATE_CHANGED, on_picc_state_changed, NULL);
+
+    // Start
+    ret = rc522_start(scanner);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start scanner (Code %d): %s", ret, esp_err_to_name(ret));
+    } else {
+        ESP_LOGI(TAG, "Scanner started successfully!");
+    }
+    vTaskDelete(NULL); // free memory
+}
+
 void app_main(void) {
     vTaskDelay(pdMS_TO_TICKS(5000));
 
@@ -310,6 +391,7 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_zb_platform_config(&config));
 
     xTaskCreate(esp_zb_task, "Zigbee_main", 4096, NULL, 5, NULL);
+    xTaskCreate(rc522_setup_task, "rc522_setup_task", 4096, NULL, 5, NULL);
 
     lcd_driver_clear();
 }
