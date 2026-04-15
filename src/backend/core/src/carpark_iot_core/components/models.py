@@ -9,9 +9,9 @@ from threading import Thread
 from typing import Callable
 
 import cv2
-from libcamera import controls
 from fast_alpr import ALPR, ALPRResult
 from gpiozero import LEDMultiCharDisplay, TrafficLights
+from libcamera import controls
 from paho.mqtt.client import Client
 from picamera2 import Picamera2, MappedArray, Preview
 
@@ -23,6 +23,7 @@ alpr = ALPR(
 )
 
 logger = logging.getLogger("uvicorn.error")
+
 
 class Component(ABC):
     pass
@@ -66,7 +67,7 @@ class SmartGate(MqttComponent):
         self._mqtt_client.publish(f"zigbee2mqtt/{self.id}/set",
                                   SmartGateOutput(clear_display=True).model_dump_json(exclude_none=True))
 
-    async def open_and_close(self, delay: int , open_text: str | None = None) -> None:
+    async def open_and_close(self, delay: int, open_text: str | None = None) -> None:
         self.open()
         if open_text:
             self.display(open_text)
@@ -95,16 +96,17 @@ class ParkingSpaceIndicator(Component):
 class LicensePlateCamera(Component):
     on_detect: Callable[[str], None]
 
+    min_threshold: float
     _camera: Picamera2
     _thread: Thread
     _predictions: list[ALPRResult]
 
     THRESHOLD = 50
 
-    def __init__(self, on_detect: Callable[[str], None]):
+    def __init__(self, on_detect: Callable[[str], None], *, min_threshold: float = 0.98):
         self.on_detect = on_detect
+        self.min_threshold = min_threshold
 
-        print("Init camera1")
         self._camera = Picamera2()
         camera_config = self._camera.create_preview_configuration(
             {"size": (1024, 768)},
@@ -123,17 +125,30 @@ class LicensePlateCamera(Component):
     def on_frame(self):
         while True:
             image = self._camera.capture_array()
-            self._predictions = alpr.predict(image[:,:,0:3])
-            if not self._predictions:
-                continue
 
-            for result in self._predictions:
-                self.on_detect(result.ocr.text)
+            predictions: list[ALPRResult] = alpr.predict(image[:, :, 0:3])
+            predictions = list(filter(lambda p: (
+                                                    statistics.mean(p.ocr.confidence)
+                                                    if isinstance(p.ocr.confidence, list)
+                                                    else p.ocr.confidence
+                                                ) > self.min_threshold, predictions))
+            if predictions:
+                for result in predictions:
+                    for old_result in self._predictions:
+                        if result.ocr.text == old_result.ocr.text:
+                            break
+                    else:
+                        self.on_detect(result.ocr.text)
+
+            self._predictions = predictions
 
             time.sleep(0.2)
 
     def draw_texts(self, request):
         with MappedArray(request, "main") as m:
+            if not self._predictions:
+                cv2.rectangle(m.array, (0, 0), (0, 0), (36, 255, 12), 0)
+
             for result in self._predictions:
                 detection = result.detection
                 ocr_result = result.ocr
