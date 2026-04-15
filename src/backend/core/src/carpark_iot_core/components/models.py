@@ -1,12 +1,16 @@
 import asyncio
+import logging
+import statistics
 import threading
+import time
 from abc import ABC
 from dataclasses import dataclass
 from threading import Thread
 from typing import Callable
 
-import numpy as np
-from fast_alpr import ALPR
+import cv2
+from libcamera import controls
+from fast_alpr import ALPR, ALPRResult
 from gpiozero import LEDMultiCharDisplay, TrafficLights
 from paho.mqtt.client import Client
 from picamera2 import Picamera2, MappedArray, Preview
@@ -18,6 +22,7 @@ alpr = ALPR(
     ocr_model="cct-xs-v2-global-model",
 )
 
+logger = logging.getLogger("uvicorn.error")
 
 class Component(ABC):
     pass
@@ -92,39 +97,107 @@ class LicensePlateCamera(Component):
 
     _camera: Picamera2
     _thread: Thread
+    _predictions: list[ALPRResult]
 
     THRESHOLD = 50
 
     def __init__(self, on_detect: Callable[[str], None]):
         self.on_detect = on_detect
 
+        print("Init camera1")
         self._camera = Picamera2()
-        self._camera.configure(
-            self._camera.create_preview_configuration({"size": (1024, 768)}, controls={"FrameRate": 10}))
+        camera_config = self._camera.create_preview_configuration(
+            {"size": (1024, 768)},
+            controls={"FrameRate": 10, "AfMode": controls.AfModeEnum.Continuous}
+        )
+        self._camera.configure(camera_config)
         self._camera.start_preview(Preview.QTGL)
         self._camera.start()
 
         self._camera.post_callback = self.draw_texts
 
+        self._predictions: list[ALPRResult] = []
         self._thread = threading.Thread(target=self.on_frame)
+        self._thread.start()
 
     def on_frame(self):
-        stream = self._camera.capture_array()
-        w, h, _ = stream.shape
+        while True:
+            image = self._camera.capture_array()
+            self._predictions = alpr.predict(image[:,:,0:3])
+            if not self._predictions:
+                continue
 
-        frame = np.frombuffer(stream, dtype=np.uint8, count=w * h).reshape(h, w)
+            for result in self._predictions:
+                self.on_detect(result.ocr.text)
 
-        results = alpr.predict(frame)
-        if not results:
-            return
+            time.sleep(0.2)
 
-        for result in results:
-            self.on_detect(result.ocr.text)
-
-    @staticmethod
-    def draw_texts(request):
+    def draw_texts(self, request):
         with MappedArray(request, "main") as m:
-            alpr.draw_predictions(m.array)  # noqa
+            for result in self._predictions:
+                detection = result.detection
+                ocr_result = result.ocr
+                bbox = detection.bounding_box
+                x1, y1, x2, y2 = bbox.x1, bbox.y1, bbox.x2, bbox.y2
+                # Draw the bounding box
+                cv2.rectangle(m.array, (x1, y1), (x2, y2), (36, 255, 12), 2)
+                if ocr_result is None or not ocr_result.text or not ocr_result.confidence:
+                    continue
+                confidence: float = (
+                    statistics.mean(ocr_result.confidence)
+                    if isinstance(ocr_result.confidence, list)
+                    else ocr_result.confidence
+                )
+                font_scale = min(1.25, max(0.4, m.array.shape[1] / 1000))
+                text_thickness = 1 if font_scale < 0.75 else 2
+                outline_thickness = text_thickness + max(3, round(font_scale * 3))
+                display_lines = [f"{ocr_result.text} {confidence * 100:.0f}%"]
+                if ocr_result.region:
+                    region_text = ocr_result.region
+                    if ocr_result.region_confidence is not None:
+                        region_text = f"{region_text} {ocr_result.region_confidence * 100:.0f}%"
+                    display_lines.insert(0, region_text)
+
+                _, text_height = cv2.getTextSize(
+                    display_lines[0], cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_thickness
+                )[0]
+                line_gap = max(14, round(text_height * 0.6))
+                line_height = text_height + line_gap
+                text_y = y1 - 10 - ((len(display_lines) - 1) * line_height)
+                if text_y - text_height < 0:
+                    text_y = y2 + text_height + 10
+
+                for idx, line in enumerate(display_lines):
+                    text_width, current_text_height = cv2.getTextSize(
+                        line, cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_thickness
+                    )[0]
+                    text_x = min(max(x1, 5), max(5, m.array.shape[1] - text_width - 5))
+                    current_y = min(
+                        max(text_y + (idx * line_height), current_text_height + 5),
+                        m.array.shape[0] - 5,
+                    )
+                    # Draw black background for better readability
+                    cv2.putText(
+                        img=m.array,
+                        text=line,
+                        org=(text_x, current_y),
+                        fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                        fontScale=font_scale,
+                        color=(0, 0, 0),
+                        thickness=outline_thickness,
+                        lineType=cv2.LINE_AA,
+                    )
+                    # Draw white text
+                    cv2.putText(
+                        img=m.array,
+                        text=line,
+                        org=(text_x, current_y),
+                        fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                        fontScale=font_scale,
+                        color=(255, 255, 255),
+                        thickness=text_thickness,
+                        lineType=cv2.LINE_AA,
+                    )
 
 
 __all__ = (
