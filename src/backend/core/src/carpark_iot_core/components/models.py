@@ -11,7 +11,7 @@ from typing import Callable
 import cv2
 from fast_alpr import ALPR, ALPRResult
 from gpiozero import LEDMultiCharDisplay, TrafficLights
-from libcamera import controls
+from libcamera import controls, Transform
 from paho.mqtt.client import Client
 from picamera2 import Picamera2, MappedArray, Preview
 
@@ -110,6 +110,7 @@ class LicensePlateCamera(Component):
         self._camera = Picamera2()
         camera_config = self._camera.create_preview_configuration(
             {"size": (1024, 768)},
+            transform=Transform(hflip=1, vflip=1),
             controls={"FrameRate": 10, "AfMode": controls.AfModeEnum.Continuous}
         )
         self._camera.configure(camera_config)
