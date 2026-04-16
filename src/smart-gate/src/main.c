@@ -19,8 +19,8 @@
 #include "ha/esp_zigbee_ha_standard.h"
 #include "main.h"
 #include "esp_err.h"
-#include "driver/i2c.h"
 #include <string.h>
+#include <sys/types.h>
 
 #include "i2c_driver.h"
 #include "lcd_driver.h"
@@ -32,9 +32,9 @@
 #endif
 
 bool gate_state = false;
-char* display_text = NULL;
+char display_text_attr[4 * 16];
 #if CONFIG_SMART_GATE_EXIT
-char* nfc_data = NULL;
+char nfc_id_attr[RC522_PICC_UID_SIZE_MAX + 1];
 #endif
 
 static const char *TAG = "MAIN";
@@ -50,29 +50,32 @@ static esp_err_t esp_zb_zcl_send_update_cmd(const uint16_t cluster_id, const uin
     return esp_zb_zcl_report_attr_cmd_req(&ph_cmd_req);
 }
 
-#if CONFIG_SMART_GATE_EXIT
-static void esp_app_nfc_handler(esp_nfc_callback_action_t callback_id, const void* message) {
+static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, const void* message) {
     switch (callback_id) {
         case ESP_NFC_READ:
         case ESP_NFC_REMOVE:
             if (callback_id == ESP_NFC_READ) {
                 const esp_nfc_callback_message_read_t* payload = (esp_nfc_callback_message_read_t*) message;
-                nfc_data = payload->data;
+                if (memcmp(nfc_id_attr, payload->picc->uid.value, payload->picc->uid.length * sizeof(uint8_t)) != 0) {
+                    memcpy(nfc_id_attr, payload->picc->uid.value, payload->picc->uid.length * sizeof(uint8_t));
+                    nfc_id_attr[payload->picc->uid.length] = 0;
+
+                    // do other stuff when nfc detected for the first time
+                }
             } else {
-                nfc_data = NULL;
+                nfc_id_attr[0] = 0;
             }
 
             esp_zb_lock_acquire(portMAX_DELAY);
-            esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
-                HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
-                HA_CONTROL_NFC_ATTR, nfc_data, false);
+            // esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
+            //     HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+            //     HA_CONTROL_NFC_ATTR, nfc_id_attr, false);
             esp_zb_zcl_send_update_cmd(HA_CONTROL_CLUSTER, HA_CONTROL_NFC_ATTR);
             esp_zb_lock_release();
 
             break;
     }
 }
-#endif
 
 static esp_err_t deferred_driver_init(void) {
     static bool is_inited = false;
@@ -81,7 +84,7 @@ static esp_err_t deferred_driver_init(void) {
         lcd_driver_init();
         servo_driver_init(0);
 #if CONFIG_SMART_GATE_EXIT
-        rc522_driver_init(esp_app_nfc_handler, 125);
+        rc522_driver_init((esp_nfc_callback_t) esp_app_nfc_handler, 125);
 #endif
 
         lcd_driver_clear();
@@ -164,12 +167,10 @@ static esp_err_t zb_attribute_handler(const esp_zb_zcl_set_attr_value_message_t 
                 ESP_LOGI(TAG, "Gate set to %s", gate_state ? "On" : "Off");
             }
             else if (message->attribute.id == HA_CONTROL_DISPLAY_ATTR && message->attribute.data.type == ESP_ZB_ZCL_ATTR_TYPE_CHAR_STRING) {
-                display_text = message->attribute.data.value ? (char *) message->attribute.data.value : display_text;
-                const uint8_t len = *display_text;
-                *(display_text + len + 1) = 0;
+                strlcpy(display_text_attr, message->attribute.data.value, MIN(message->attribute.data.size, 4 * 16));
 
-                lcd_driver_print(display_text + 1);
-                ESP_LOGI(TAG, "Lcd display output set to '%s'", display_text + 1);
+                lcd_driver_print(display_text_attr);
+                ESP_LOGI(TAG, "Lcd display output set to '%s'", display_text_attr);
             }
         }
     }
@@ -190,28 +191,28 @@ static esp_err_t zb_custom_cmd_handler(const esp_zb_zcl_custom_cluster_command_m
     if (message->info.dst_endpoint == HA_ESP_ENDPOINT) {
         if (message->info.cluster == HA_CONTROL_CLUSTER) {
             if (message->info.command.id == HA_CONTROL_CLEAR_DISPLAY_CMD) {
-                display_text = NULL;
+                display_text_attr[0] = 0;
 
                 lcd_driver_clear();
                 ESP_LOGI(TAG, "Cleared display");
 
                 esp_zb_lock_acquire(portMAX_DELAY);
-                esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
-                    HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
-                    HA_CONTROL_DISPLAY_ATTR, display_text, false);
+                // esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
+                //     HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+                //     HA_CONTROL_DISPLAY_ATTR, display_text_attr, false);
                 esp_zb_zcl_send_update_cmd(HA_CONTROL_CLUSTER, HA_CONTROL_DISPLAY_ATTR);
                 esp_zb_lock_release();
             }
 #if CONFIG_SMART_GATE_EXIT
             else if (message->info.command.id == HA_CONTROL_CLEAR_NFC_CMD) {
-                nfc_data = NULL;
+                nfc_id_attr[0] = 0;
 
                 ESP_LOGI(TAG, "Cleared NFC");
 
                 esp_zb_lock_acquire(portMAX_DELAY);
-                esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
-                    HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
-                    HA_CONTROL_NFC_ATTR, nfc_data, false);
+                // esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
+                //     HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+                //     HA_CONTROL_NFC_ATTR, nfc_id_attr, false);
                 esp_zb_zcl_send_update_cmd(HA_CONTROL_CLUSTER, HA_CONTROL_NFC_ATTR);
                 esp_zb_lock_release();
             }
@@ -307,9 +308,9 @@ static void esp_zb_task(void *pvParameters) {
     /* control cluster */
     esp_zb_attribute_list_t *cluster = esp_zb_zcl_attr_list_create(HA_CONTROL_CLUSTER);
     esp_zb_custom_cluster_add_custom_attr(cluster, HA_CONTROL_GATE_ATTR, ESP_ZB_ZCL_ATTR_TYPE_BOOL, ESP_ZB_ZCL_ATTR_ACCESS_READ_WRITE | ESP_ZB_ZCL_ATTR_ACCESS_REPORTING, &gate_state);
-    esp_zb_custom_cluster_add_custom_attr(cluster, HA_CONTROL_DISPLAY_ATTR, ESP_ZB_ZCL_ATTR_TYPE_CHAR_STRING, ESP_ZB_ZCL_ATTR_ACCESS_READ_WRITE | ESP_ZB_ZCL_ATTR_ACCESS_REPORTING, &display_text);
+    esp_zb_custom_cluster_add_custom_attr(cluster, HA_CONTROL_DISPLAY_ATTR, ESP_ZB_ZCL_ATTR_TYPE_CHAR_STRING, ESP_ZB_ZCL_ATTR_ACCESS_READ_WRITE | ESP_ZB_ZCL_ATTR_ACCESS_REPORTING, &display_text_attr);
 #if CONFIG_SMART_GATE_EXIT
-    esp_zb_custom_cluster_add_custom_attr(cluster, HA_CONTROL_NFC_ATTR, ESP_ZB_ZCL_ATTR_TYPE_ARRAY, ESP_ZB_ZCL_ATTR_ACCESS_READ_ONLY | ESP_ZB_ZCL_ATTR_ACCESS_REPORTING, &nfc_data);
+    esp_zb_custom_cluster_add_custom_attr(cluster, HA_CONTROL_NFC_ATTR, ESP_ZB_ZCL_ATTR_TYPE_CHAR_STRING, ESP_ZB_ZCL_ATTR_ACCESS_READ_ONLY | ESP_ZB_ZCL_ATTR_ACCESS_REPORTING, &nfc_id_attr);
 #endif
 
     /* create cluster lists for this endpoint */
