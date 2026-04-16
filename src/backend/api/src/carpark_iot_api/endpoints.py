@@ -14,7 +14,6 @@ from starlette.responses import HTMLResponse, StreamingResponse
 from starlette.staticfiles import StaticFiles
 
 from carpark_iot_api.containers import ApplicationContainer
-from carpark_iot_api.schemas import Entry, EntryCursor
 from carpark_iot_core.db.database import AsyncDatabase
 from carpark_iot_core.db.models import Entry as DBEntry
 
@@ -61,38 +60,41 @@ output = StreamingOutput()
 @router.get("/", response_class=HTMLResponse)
 @inject
 async def index(request: Request):
-    return templates.TemplateResponse(request=request, name="index.html.j2")
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
-@router.get("/entry")
-@inject
+@router.get("/hx-entry", response_class=HTMLResponse)
 async def get_entries(
-        db: Annotated[AsyncDatabase,
-        Depends(Provide[ApplicationContainer.db])],
+        request: Request,
+        db: Annotated[AsyncDatabase, Depends(Provide[ApplicationContainer.db])],
         cursor: datetime,
-        count: int
-) -> EntryCursor:
+        count: int = 20
+) -> HTMLResponse:
     async with db.session as session:
         stmt = select(DBEntry) \
             .where(DBEntry.timestamp < cursor) \
             .order_by(DBEntry.timestamp.desc()) \
             .limit(count)
-        result = tuple(map(lambda r: Entry.model_validate(r), (await session.execute(stmt)).all()))
+        results = (await session.scalars(stmt)).all()
 
-        return EntryCursor(data=result, count=len(result), cursor=result[-1].timestamp)
+        return templates.TemplateResponse(request, name="_entries.html", context={
+            "entries": results
+        })
 
 
-@router.get("/entry/stream", response_class=EventSourceResponse)
-def get_entries_stream() -> Iterable[Entry]:
+@router.get("/hx-entry/stream", response_class=EventSourceResponse)
+def get_entries_stream(request: Request) -> Iterable[HTMLResponse]:
     while True:
         with state.condition:
             state.condition.wait()
 
             if state.entry is not None:
-                yield state.entry
+                yield templates.TemplateResponse(request, name="_entry.html", context={
+                    "entry": state.entry
+                })
 
 
-@router.get("/camera/stream", response_class=MJpegStreamingResponse)
+@router.get("/camera/live.mjpg", response_class=MJpegStreamingResponse)
 def get_camera_stream() -> Iterable[bytes]:
     while True:
         with output.condition:
