@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from picamera2.encoders import JpegEncoder
+from picamera2.outputs import FileOutput
 
 from carpark_iot_api import endpoints
 from carpark_iot_api.config import CarparkSettings
@@ -24,6 +26,8 @@ def create_app() -> FastAPI:
         free_grace_period=settings.free_grace_period,
         price_per_hour=settings.price_per_hour
     )
+
+    carpark.camera._camera.start_recording(JpegEncoder(), FileOutput(endpoints.output))
 
     container.db = db
     container.carpark = carpark

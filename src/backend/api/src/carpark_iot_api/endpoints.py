@@ -1,6 +1,7 @@
-import asyncio
+import io
+import threading
 from datetime import datetime
-from typing import Annotated, AsyncIterable
+from typing import Annotated, Iterable
 
 from dependency_injector.wiring import inject, Provide
 from fastapi import APIRouter, Request
@@ -9,7 +10,7 @@ from fastapi.sse import EventSourceResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import event, Connection, select
 from sqlalchemy.orm import Mapper
-from starlette.responses import HTMLResponse
+from starlette.responses import HTMLResponse, StreamingResponse
 from starlette.staticfiles import StaticFiles
 
 from carpark_iot_api.containers import ApplicationContainer
@@ -29,15 +30,32 @@ MESSAGE_STREAM_RETRY_TIMEOUT_MS = 15000
 class State:
     def __init__(self):
         self.entry: DBEntry | None = None
-        self.condition = asyncio.Condition()
+        self.condition = threading.Condition()
 
     @event.listens_for(DBEntry, "after_insert", named=True)
     def on_new_entry(self, mapper: Mapper[DBEntry], connection: Connection, target: DBEntry) -> None:
-        self.entry = target
-        self.condition.notify_all()
+        with self.condition:
+            self.entry = target
+            self.condition.notify_all()
+
+
+class StreamingOutput(io.BufferedIOBase):
+    def __init__(self):
+        self.frame: bytes | None = None
+        self.condition = threading.Condition()
+
+    def write(self, buf: bytes):
+        with self.condition:
+            self.frame = buf
+            self.condition.notify_all()
+
+
+class MJpegStreamingResponse(StreamingResponse):
+    media_type = "multipart/x-mixed-replace; boundary=frame"
 
 
 state = State()
+output = StreamingOutput()
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -65,15 +83,29 @@ async def get_entries(
 
 
 @router.get("/entry/stream", response_class=EventSourceResponse)
-async def get_entries_stream(request: Request) -> AsyncIterable[Entry]:
-    while not await request.is_disconnected():
-        async with state.condition:
-            await state.condition.wait()
+def get_entries_stream() -> Iterable[Entry]:
+    while True:
+        with state.condition:
+            state.condition.wait()
 
-        if state.entry is not None:
-            yield state.entry
+            if state.entry is not None:
+                yield state.entry
+
+
+@router.get("/camera/stream", response_class=MJpegStreamingResponse)
+def get_camera_stream() -> Iterable[bytes]:
+    while True:
+        with output.condition:
+            output.condition.wait()
+
+            assert output.frame is not None
+            yield b"--frame\r\n" \
+                  b"Content-Type: image/jpeg\r\n" \
+                  b"Content-Length: " + str(len(output.frame)).encode() + b"\r\n" \
+                + output.frame + b"\r\n"
 
 
 __all__ = (
     "router",
+    "output"
 )
