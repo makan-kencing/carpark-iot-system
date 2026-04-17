@@ -42,7 +42,7 @@ menu "Smart Gate Configuration"
         config SPI_RST_GPIO
             int "SPI RST GPIO number"
             range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
-            default 21
+            default 22
     endmenu
 
     config SERVO_GPIO
