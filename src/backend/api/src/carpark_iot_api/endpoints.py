@@ -36,10 +36,6 @@ class State:
             self.entry = entry
             self.condition.notify_all()
 
-    @event.listens_for(DBEntry, "after_insert", named=True)
-    def on_new_entry(self, mapper: Mapper[DBEntry], connection: Connection, target: DBEntry) -> None:
-        self.notify(target)
-
 
 class StreamingOutput(io.BufferedIOBase):
     def __init__(self):
@@ -61,6 +57,11 @@ class MJpegStreamingResponse(StreamingResponse):
 
 state = State()
 output = StreamingOutput()
+
+
+@event.listens_for(DBEntry, "after_insert", named=True)
+def on_new_entry(mapper: Mapper[DBEntry], connection: Connection, target: DBEntry) -> None:
+    state.notify(target)
 
 
 def get_latest_entry(request: Request) -> Iterable:
