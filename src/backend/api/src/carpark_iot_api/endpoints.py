@@ -69,7 +69,7 @@ async def get_entries(
         db: Annotated[AsyncDatabase, Depends(Provide[ApplicationContainer.db])],
         cursor: datetime,
         count: int = 20
-) -> HTMLResponse:
+):
     async with db.session as session:
         stmt = select(DBEntry) \
             .where(DBEntry.timestamp < cursor) \
@@ -83,7 +83,7 @@ async def get_entries(
 
 
 @router.get("/hx-entry/stream", response_class=EventSourceResponse)
-def get_entries_stream(request: Request) -> Iterable[HTMLResponse]:
+def get_entries_stream(request: Request):
     while True:
         with state.condition:
             state.condition.wait()
@@ -95,7 +95,7 @@ def get_entries_stream(request: Request) -> Iterable[HTMLResponse]:
 
 
 @router.get("/camera/live.mjpg", response_class=MJpegStreamingResponse)
-def get_camera_stream() -> Iterable[bytes]:
+def get_camera_stream():
     while True:
         with output.condition:
             output.condition.wait()
