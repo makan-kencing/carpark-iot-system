@@ -51,18 +51,15 @@ static esp_err_t esp_zb_zcl_send_update_cmd(const uint16_t cluster_id, const uin
 }
 
 static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, const void* message) {
-    ESP_LOGI(TAG, "Read NFC");
     switch (callback_id) {
         case ESP_NFC_READ:
         case ESP_NFC_REMOVE:
             if (callback_id == ESP_NFC_READ) {
                 const esp_nfc_callback_message_read_t* payload = (esp_nfc_callback_message_read_t*) message;
-                ESP_LOGI(TAG, "Read NFC %10s", payload->picc->uid.value);
                 if (memcmp(nfc_id_attr, payload->picc->uid.value, payload->picc->uid.length * sizeof(uint8_t)) != 0) {
-                    nfc_id_attr[0] = 0;
-                    nfc_id_attr[1] = payload->picc->uid.length;
-                    memcpy(nfc_id_attr + 1, payload->picc->uid.value + 1, payload->picc->uid.length * sizeof(uint8_t));
-                    nfc_id_attr[payload->picc->uid.length + 2] = 0;
+                    nfc_id_attr[0] = payload->picc->uid.length;
+                    memcpy(nfc_id_attr + 1, payload->picc->uid.value, payload->picc->uid.length * sizeof(uint8_t));
+                    nfc_id_attr[payload->picc->uid.length + 1] = 0;
 
                     // do other stuff when nfc detected for the first time
                 }
