@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from dependency_injector import providers
 from fastapi import FastAPI
-from picamera2.encoders import MJPEGEncoder
+from picamera2.encoders import JpegEncoder, MJPEGEncoder
 from picamera2.outputs import FileOutput
 
 from carpark_iot_api import endpoints
