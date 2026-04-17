@@ -16,7 +16,7 @@ class MqttConfig(BaseSettings):
 
 
 class DatabaseSettings(BaseSettings):
-    driver: str = "timescaledb+asyncpg"
+    driver: str = "timescaledb"
     host: str
     port: int
     name: str
