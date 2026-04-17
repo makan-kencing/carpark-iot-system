@@ -57,8 +57,9 @@ static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, con
             if (callback_id == ESP_NFC_READ) {
                 const esp_nfc_callback_message_read_t* payload = (esp_nfc_callback_message_read_t*) message;
                 if (memcmp(nfc_id_attr, payload->picc->uid.value, payload->picc->uid.length * sizeof(uint8_t)) != 0) {
-                    memcpy(nfc_id_attr, payload->picc->uid.value, payload->picc->uid.length * sizeof(uint8_t));
-                    nfc_id_attr[payload->picc->uid.length] = 0;
+                    nfc_id_attr[0] = payload->picc->uid.length;
+                    memcpy(nfc_id_attr + 1, payload->picc->uid.value + 1, payload->picc->uid.length * sizeof(uint8_t));
+                    nfc_id_attr[payload->picc->uid.length + 1] = 0;
 
                     // do other stuff when nfc detected for the first time
                 }
@@ -67,9 +68,9 @@ static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, con
             }
 
             esp_zb_lock_acquire(portMAX_DELAY);
-            // esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
-            //     HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
-            //     HA_CONTROL_NFC_ATTR, nfc_id_attr, false);
+            esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
+                HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+                HA_CONTROL_NFC_ATTR, nfc_id_attr, false);
             esp_zb_zcl_send_update_cmd(HA_CONTROL_CLUSTER, HA_CONTROL_NFC_ATTR);
             esp_zb_lock_release();
 
@@ -197,9 +198,9 @@ static esp_err_t zb_custom_cmd_handler(const esp_zb_zcl_custom_cluster_command_m
                 ESP_LOGI(TAG, "Cleared display");
 
                 esp_zb_lock_acquire(portMAX_DELAY);
-                // esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
-                //     HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
-                //     HA_CONTROL_DISPLAY_ATTR, display_text_attr, false);
+                esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
+                    HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+                    HA_CONTROL_DISPLAY_ATTR, display_text_attr, false);
                 esp_zb_zcl_send_update_cmd(HA_CONTROL_CLUSTER, HA_CONTROL_DISPLAY_ATTR);
                 esp_zb_lock_release();
             }
@@ -210,9 +211,9 @@ static esp_err_t zb_custom_cmd_handler(const esp_zb_zcl_custom_cluster_command_m
                 ESP_LOGI(TAG, "Cleared NFC");
 
                 esp_zb_lock_acquire(portMAX_DELAY);
-                // esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
-                //     HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
-                //     HA_CONTROL_NFC_ATTR, nfc_id_attr, false);
+                esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
+                    HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+                    HA_CONTROL_NFC_ATTR, nfc_id_attr, false);
                 esp_zb_zcl_send_update_cmd(HA_CONTROL_CLUSTER, HA_CONTROL_NFC_ATTR);
                 esp_zb_lock_release();
             }
