@@ -38,7 +38,7 @@ def create_app() -> FastAPI:
     container = ApplicationContainer(db=providers.Object(db), carpark=providers.Object(carpark))
     container.wire(modules=[endpoints])
 
-    app = FastAPI()
+    app = FastAPI(lifespan=lifespan)
     app.container = container
     app.include_router(endpoints.router)
     return app
