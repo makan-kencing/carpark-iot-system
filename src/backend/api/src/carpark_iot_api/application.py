@@ -11,7 +11,7 @@ from carpark_iot_core.db.database import AsyncDatabase
 
 def create_app() -> FastAPI:
     container = ApplicationContainer()
-    container.wire(modules=[__name__])
+    container.wire(modules=[endpoints])
 
     settings = CarparkSettings()  # noqa
     settings.firebase.auth()
