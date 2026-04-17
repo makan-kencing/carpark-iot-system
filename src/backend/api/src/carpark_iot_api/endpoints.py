@@ -66,12 +66,12 @@ output = StreamingOutput()
 
 
 @router.get("/", response_class=HTMLResponse)
-@inject
 async def index(request: Request):
     return templates.TemplateResponse(request=request, name="index.html")
 
 
 @router.get("/hx-entry", response_class=HTMLResponse)
+@inject
 async def get_entries(
         request: Request,
         db: Annotated[AsyncDatabase, Depends(Provide[ApplicationContainer.db])],
