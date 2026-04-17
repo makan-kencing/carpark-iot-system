@@ -34,7 +34,7 @@
 bool gate_state = false;
 char display_text_attr[4 * 16];
 #if CONFIG_SMART_GATE_EXIT
-char nfc_id_attr[RC522_PICC_UID_SIZE_MAX + 1];
+char nfc_id_attr[RC522_PICC_UID_SIZE_MAX + 2];
 #endif
 
 static const char *TAG = "MAIN";
@@ -51,15 +51,18 @@ static esp_err_t esp_zb_zcl_send_update_cmd(const uint16_t cluster_id, const uin
 }
 
 static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, const void* message) {
+    ESP_LOGI(TAG, "Read NFC");
     switch (callback_id) {
         case ESP_NFC_READ:
         case ESP_NFC_REMOVE:
             if (callback_id == ESP_NFC_READ) {
                 const esp_nfc_callback_message_read_t* payload = (esp_nfc_callback_message_read_t*) message;
+                ESP_LOGI(TAG, "Read NFC %10s", payload->picc->uid.value);
                 if (memcmp(nfc_id_attr, payload->picc->uid.value, payload->picc->uid.length * sizeof(uint8_t)) != 0) {
-                    nfc_id_attr[0] = payload->picc->uid.length;
+                    nfc_id_attr[0] = 0;
+                    nfc_id_attr[1] = payload->picc->uid.length;
                     memcpy(nfc_id_attr + 1, payload->picc->uid.value + 1, payload->picc->uid.length * sizeof(uint8_t));
-                    nfc_id_attr[payload->picc->uid.length + 1] = 0;
+                    nfc_id_attr[payload->picc->uid.length + 2] = 0;
 
                     // do other stuff when nfc detected for the first time
                 }
@@ -168,10 +171,10 @@ static esp_err_t zb_attribute_handler(const esp_zb_zcl_set_attr_value_message_t 
                 ESP_LOGI(TAG, "Gate set to %s", gate_state ? "On" : "Off");
             }
             else if (message->attribute.id == HA_CONTROL_DISPLAY_ATTR && message->attribute.data.type == ESP_ZB_ZCL_ATTR_TYPE_CHAR_STRING) {
-                strlcpy(display_text_attr, message->attribute.data.value, MIN(message->attribute.data.size, 4 * 16));
+                strlcpy(display_text_attr, message->attribute.data.value, MIN(message->attribute.data.size + 1, 4 * 16));
 
-                lcd_driver_print(display_text_attr);
-                ESP_LOGI(TAG, "Lcd display output set to '%s'", display_text_attr);
+                lcd_driver_print(display_text_attr + 1);
+                ESP_LOGI(TAG, "Lcd display output set to '%s'", display_text_attr + 1);
             }
         }
     }
