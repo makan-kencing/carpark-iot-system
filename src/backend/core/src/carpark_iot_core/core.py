@@ -105,7 +105,7 @@ class Carpark:
             return
 
         match data:
-            case {"model_id": model_id, "manufacturer": "Carpark"}:
+            case {"model_id": model_id, "manufacturer": "ESPRESSIF"}:
                 match model_id:
                     case "SGEN":
                         self.mqtt_components[friendly_name] = SmartGate(
@@ -113,20 +113,21 @@ class Carpark:
                             _mqtt_client=self.mqtt_client
                         )
                         self._entry_gate_id = friendly_name
-                        self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}/+")
+                        self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}")
                     case "SGEX":
                         self.mqtt_components[friendly_name] = SmartGate(
                             id=friendly_name,
                             _mqtt_client=self.mqtt_client
                         )
                         self._exit_gate_id = friendly_name
-                        self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}/+")
+                        self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}")
                     case "SGS3":
                         self.mqtt_components[friendly_name] = SmartParkingSpace(
                             id=friendly_name,
                             _mqtt_client=self.mqtt_client
                         )
-                        self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}/+")
+                        self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}")
+                        self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}/get")
                         self.mqtt_client.publish(f"zigbee2mqtt/{friendly_name}/get", SmartParkingSpaceOutput().model_dump_json())
             case _:
                 return
@@ -184,9 +185,6 @@ class Carpark:
 
 
     def handle_car(self, license_plate: str) -> None:
-        if self._entry_gate_id is None or self._exit_gate_id is None:
-            return
-
         stmt = select(Entry) \
             .where(Entry.license_plate == license_plate) \
             .order_by(Entry.timestamp.desc()) \
@@ -196,6 +194,9 @@ class Carpark:
             last_entry: Entry | None = session.scalars(stmt).one_or_none()
 
             if last_entry is None or last_entry.type is Entry.EntryType.Exit:
+                if self._entry_gate_id is None:
+                    return
+
                 gate = cast(SmartGate, self.mqtt_components[self._entry_gate_id])
 
                 threading.Thread(target=gate.open_and_close,args=(5, f"Welcome\nCar: {license_plate}"))
@@ -212,6 +213,9 @@ class Carpark:
                     "price": entry.price
                 })
             else:
+                if self._exit_gate_id is None:
+                    return
+
                 price = self.calculate_price(entry.timestamp)  # noqa
 
                 gate = cast(SmartGate, self.mqtt_components[self._exit_gate_id])

@@ -17,7 +17,6 @@ async def lifespan(app: FastAPI):
     app.container.db().create_database()  # noqa
     yield
 
-
 def create_app() -> FastAPI:
     settings = CarparkSettings()  # noqa
     settings.firebase.auth()
