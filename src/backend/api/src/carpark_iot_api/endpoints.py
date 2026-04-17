@@ -1,7 +1,8 @@
 import io
-import threading
 from datetime import datetime
-from typing import Annotated, Iterable
+from typing import Annotated
+
+import asyncio
 
 from dependency_injector.wiring import inject, Provide
 from fastapi import APIRouter, Request
@@ -29,24 +30,31 @@ MESSAGE_STREAM_RETRY_TIMEOUT_MS = 15000
 class State:
     def __init__(self):
         self.entry: DBEntry | None = None
-        self.condition = threading.Condition()
+        self.condition = asyncio.Condition()
+
+    async def notify(self, entry: DBEntry) -> None:
+        async with self.condition:
+            self.entry = entry
+            self.condition.notify_all()
 
     @event.listens_for(DBEntry, "after_insert", named=True)
     def on_new_entry(self, mapper: Mapper[DBEntry], connection: Connection, target: DBEntry) -> None:
-        with self.condition:
-            self.entry = target
-            self.condition.notify_all()
+        asyncio.run(self.notify(target))
 
 
 class StreamingOutput(io.BufferedIOBase):
     def __init__(self):
         self.frame: bytes | None = None
-        self.condition = threading.Condition()
+        self.condition = asyncio.Condition()
 
-    def write(self, buf: bytes):
-        with self.condition:
+    async def notify(self, buf: bytes) -> None:
+        async with self.condition:
             self.frame = buf
             self.condition.notify_all()
+            await self.condition.wait()
+
+    def write(self, buf: bytes):
+        asyncio.run(self.notify(buf))
 
 
 class MJpegStreamingResponse(StreamingResponse):
@@ -83,10 +91,10 @@ async def get_entries(
 
 
 @router.get("/hx-entry/stream", response_class=EventSourceResponse)
-def get_entries_stream(request: Request):
+async def get_entries_stream(request: Request):
     while True:
-        with state.condition:
-            state.condition.wait()
+        async with state.condition:
+            await state.condition.wait()
 
             if state.entry is not None:
                 yield templates.TemplateResponse(request, name="_entry.html", context={
@@ -95,10 +103,10 @@ def get_entries_stream(request: Request):
 
 
 @router.get("/camera/live.mjpg", response_class=MJpegStreamingResponse)
-def get_camera_stream():
+async def get_camera_stream():
     while True:
-        with output.condition:
-            output.condition.wait()
+        async with output.condition:
+            await output.condition.wait()
 
             assert output.frame is not None
             yield b"--frame\r\n" \
