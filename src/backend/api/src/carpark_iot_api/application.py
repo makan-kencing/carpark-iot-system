@@ -14,7 +14,7 @@ from carpark_iot_core.db.database import Database
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await app.container.db().create_database()  # noqa
+    app.container.db().create_database()  # noqa
     yield
 
 
