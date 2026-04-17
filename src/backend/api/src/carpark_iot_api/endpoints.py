@@ -75,13 +75,14 @@ async def index(request: Request):
 async def get_entries(
         request: Request,
         db: Annotated[AsyncDatabase, Depends(Provide[ApplicationContainer.db])],
-        cursor: datetime,
+        cursor: datetime | None = None,
         count: int = 20
 ):
     async with db.session as session:
-        stmt = select(DBEntry) \
-            .where(DBEntry.timestamp < cursor) \
-            .order_by(DBEntry.timestamp.desc()) \
+        stmt = select(DBEntry)
+        if cursor is not None:
+            stmt = stmt.where(DBEntry.timestamp < cursor)
+        stmt = stmt.order_by(DBEntry.timestamp.desc()) \
             .limit(count)
         results = (await session.scalars(stmt)).all()
 
