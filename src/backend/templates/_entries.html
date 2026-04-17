@@ -1,5 +1,5 @@
 {% for entry in entries %}
-    {% if _loop.last %}
+    {% if loop.last %}
         <tr hx-get="/hx-entry?cursor={{ entry.timestamp.timestamp() }}"
             hx-trigger="revealed"
             hx-swap="afterend">
