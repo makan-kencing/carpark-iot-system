@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import statistics
 import threading
@@ -67,12 +66,12 @@ class SmartGate(MqttComponent):
         self._mqtt_client.publish(f"zigbee2mqtt/{self.id}/set",
                                   SmartGateOutput(clear_display=True).model_dump_json(exclude_none=True))
 
-    async def open_and_close(self, delay: int, open_text: str | None = None) -> None:
+    def open_and_close(self, delay: int, open_text: str | None = None) -> None:
         self.open()
         if open_text:
             self.display(open_text)
 
-        await asyncio.sleep(delay)
+        time.sleep(delay)
 
         self.close()
         self.clear_display()

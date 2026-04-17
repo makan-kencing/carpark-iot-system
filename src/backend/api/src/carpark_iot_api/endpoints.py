@@ -14,7 +14,7 @@ from starlette.responses import HTMLResponse, StreamingResponse
 from starlette.staticfiles import StaticFiles
 
 from carpark_iot_api.containers import ApplicationContainer
-from carpark_iot_core.db.database import AsyncDatabase
+from carpark_iot_core.db.database import Database
 from carpark_iot_core.db.models import Entry as DBEntry
 
 router = APIRouter()
@@ -94,19 +94,19 @@ async def index(request: Request):
 
 @router.get("/hx-entry", response_class=HTMLResponse)
 @inject
-async def get_entries(
+def get_entries(
         request: Request,
-        db: Annotated[AsyncDatabase, Depends(Provide[ApplicationContainer.db])],
+        db: Annotated[Database, Depends(Provide[ApplicationContainer.db])],
         cursor: datetime | None = None,
         count: int = 20
 ):
-    async with db.session as session:
+    with db.session as session:
         stmt = select(DBEntry)
         if cursor is not None:
             stmt = stmt.where(DBEntry.timestamp < cursor)
         stmt = stmt.order_by(DBEntry.timestamp.desc()) \
             .limit(count)
-        results = (await session.scalars(stmt)).all()
+        results = (session.scalars(stmt)).all()
 
         return templates.TemplateResponse(request, name="_entries.html", context={
             "entries": results

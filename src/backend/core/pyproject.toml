@@ -12,7 +12,7 @@ dependencies = [
     "paho-mqtt",
     "sqlalchemy",
     "sqlalchemy-timescaledb",
-    "asyncpg",
+    "psycopg2-binary",
     "firebase-admin"
 ]
 

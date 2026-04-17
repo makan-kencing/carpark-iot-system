@@ -1,4 +1,4 @@
-import asyncio
+import threading
 import json
 import logging
 from dataclasses import dataclass
@@ -17,7 +17,7 @@ from carpark_iot_core.components.models import ParkingSpaceIndicator, SmartGate,
     LicensePlateCamera, MqttComponent
 from carpark_iot_core.components.schemas import PermitJoinRequest, SmartParkingSpaceInput, SmartGateOutput, \
     SmartParkingSpaceOutput
-from carpark_iot_core.db.database import AsyncDatabase
+from carpark_iot_core.db.database import Database
 from carpark_iot_core.db.models import Entry
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class Carpark:
 
     def __init__(
             self,
-            db: AsyncDatabase,
+            db: Database,
             mqtt_host: str,
             mqtt_port: int,
             parking_space_indicator: ParkingSpaceIndicator,
@@ -53,7 +53,7 @@ class Carpark:
             price_per_hour: Decimal
     ):
         self.db = db
-        self.camera = LicensePlateCamera(self.on_license_plate)
+        self.camera = LicensePlateCamera(self.handle_car)
         self.parking_space_counter = parking_space_indicator
         self.free_grace_period = free_grace_period
         self.price_per_hour = price_per_hour
@@ -64,9 +64,6 @@ class Carpark:
         self.mqtt_client.on_message = self.on_mqtt_message
         self.mqtt_client.connect_async(mqtt_host, mqtt_port)
         self.mqtt_client.loop_start()
-
-    def on_license_plate(self, license_plate: str) -> None:
-        asyncio.run(self.handle_car(license_plate))
 
     def on_mqtt_connect(self, client: Client, userdata: Any, flags: ConnectFlags, reason: ReasonCode,
                         properties: Properties | None) -> None:
@@ -93,7 +90,7 @@ class Carpark:
                         payload: SmartGateOutput = SmartGateOutput.model_validate(payload)
 
                         if payload.nfc_data:
-                            asyncio.run(self.handle_nfc(payload.nfc_data))
+                            self.handle_nfc(payload.nfc_data)
                     case SmartParkingSpace() as smart_parking_space:
                         payload: SmartParkingSpaceInput = SmartParkingSpaceInput.model_validate(payload)
                         payload.update(smart_parking_space)
@@ -158,19 +155,19 @@ class Carpark:
 
         self.parking_space_counter.display(total=total, remaining=remaining)
 
-    async def handle_nfc(self, nfc_data: str) -> None:
+    def handle_nfc(self, nfc_data: str) -> None:
         if not self.checkout:
             return
 
-        async with self.db.session as session:
+        with self.db.session as session:
             gate = cast(SmartGate, self.mqtt_components[self._exit_gate_id])
-            asyncio.create_task(gate.open_and_close(5, f"Thank you!\nCar: {self.checkout.license_plate}"))
+            threading.Thread(target=gate.open_and_close, args=(5, f"Thank you!\nCar: {self.checkout.license_plate}"))
             gate.clear_nfc()
 
             entry = Entry(license_plate=self.checkout.license_plate, gate_id=gate.id, type=Entry.EntryType.Exit,
                           price=self.checkout.price)
             session.add(entry)
-            await session.commit()
+            session.commit()
 
             self.firebase_db.child("entry").set({
                 "timestamp": entry.timestamp.isoformat(),
@@ -181,23 +178,23 @@ class Carpark:
             })
 
 
-    async def handle_car(self, license_plate: str) -> None:
+    def handle_car(self, license_plate: str) -> None:
         stmt = select(Entry) \
             .where(Entry.license_plate == license_plate) \
             .order_by(Entry.timestamp.desc()) \
             .limit(1)
 
-        async with self.db.session as session:
-            last_entry: Entry | None = (await session.execute(stmt)).scalar_one_or_none()
-
+        with self.db.session as session:
+            last_entry: Entry | None = session.scalars(stmt).one_or_none()
 
             if last_entry is None or last_entry.type is Entry.EntryType.Exit:
                 gate = cast(SmartGate, self.mqtt_components[self._entry_gate_id])
-                asyncio.create_task(gate.open_and_close(5, f"Welcome\nCar: {license_plate}"))
+
+                threading.Thread(target=gate.open_and_close,args=(5, f"Welcome\nCar: {license_plate}"))
 
                 entry = Entry(license_plate=license_plate, gate_id=gate.id, type=Entry.EntryType.Entry)
                 session.add(entry)
-                await session.commit()
+                session.commit()
 
                 self.firebase_db.child("entry").set({
                     "timestamp": entry.timestamp.isoformat(),
@@ -211,12 +208,12 @@ class Carpark:
 
                 gate = cast(SmartGate, self.mqtt_components[self._exit_gate_id])
                 if price.is_zero():
-                    asyncio.create_task(gate.open_and_close(5, f"Thank you!\nCar: {self.checkout.license_plate}"))
+                    threading.Thread(target=gate.open_and_close, args=(5, f"Thank you!\nCar: {self.checkout.license_plate}"))
 
                     entry = Entry(license_plate=license_plate, gate_id=gate.id, type=Entry.EntryType.Exit,
                                   price=price)
                     session.add(entry)
-                    await session.commit()
+                    session.commit()
 
                     self.firebase_db.child("entry").set({
                         "timestamp": entry.timestamp.isoformat(),

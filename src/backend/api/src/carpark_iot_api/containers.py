@@ -4,7 +4,7 @@ import sys
 from dependency_injector import containers, providers
 
 from carpark_iot_core.core import Carpark
-from carpark_iot_core.db.database import AsyncDatabase
+from carpark_iot_core.db.database import Database
 
 
 class ApplicationContainer(containers.DeclarativeContainer):
@@ -16,7 +16,7 @@ class ApplicationContainer(containers.DeclarativeContainer):
 
     # Gateways
 
-    db: AsyncDatabase = providers.Dependency(instance_of=AsyncDatabase)
+    db: Database = providers.Dependency(instance_of=Database)
 
     # Services
 

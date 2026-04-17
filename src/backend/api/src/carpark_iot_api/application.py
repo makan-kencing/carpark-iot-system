@@ -9,7 +9,7 @@ from carpark_iot_api import endpoints
 from carpark_iot_api.config import CarparkSettings
 from carpark_iot_api.containers import ApplicationContainer
 from carpark_iot_core.core import Carpark
-from carpark_iot_core.db.database import AsyncDatabase
+from carpark_iot_core.db.database import Database
 
 
 @asynccontextmanager
@@ -22,7 +22,7 @@ def create_app() -> FastAPI:
     settings = CarparkSettings()  # noqa
     settings.firebase.auth()
 
-    db = AsyncDatabase(db_url=settings.db.connection_url.get_secret_value())
+    db = Database(db_url=settings.db.connection_url.get_secret_value())
 
     carpark = Carpark(
         db=db,
