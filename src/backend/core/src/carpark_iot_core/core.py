@@ -167,7 +167,7 @@ class Carpark:
 
         with self.db.session as session:
             gate = cast(SmartGate, self.mqtt_components[self._exit_gate_id])
-            threading.Thread(target=gate.open_and_close, args=(5, f"Thank you!\nCar: {self.checkout.license_plate}"))
+            threading.Thread(target=gate.open_and_close, args=(5, f"Thank you!\nCar: {self.checkout.license_plate}")).start()
             gate.clear_nfc()
 
             entry = Entry(license_plate=self.checkout.license_plate, gate_id=gate.id, type=Entry.EntryType.Exit,
@@ -201,7 +201,7 @@ class Carpark:
                 print("Opening gate")
                 gate = cast(SmartGate, self.mqtt_components[self._entry_gate_id])
 
-                threading.Thread(target=gate.open_and_close,args=(5, f"Welcome\nCar: {license_plate}"))
+                threading.Thread(target=gate.open_and_close,args=(5, f"Welcome\nCar: {license_plate}")).start()
 
                 entry = Entry(license_plate=license_plate, gate_id=gate.id, type=Entry.EntryType.Entry)
                 session.add(entry)
@@ -222,7 +222,7 @@ class Carpark:
 
                 gate = cast(SmartGate, self.mqtt_components[self._exit_gate_id])
                 if price.is_zero():
-                    threading.Thread(target=gate.open_and_close, args=(5, f"Thank you!\nCar: {self.checkout.license_plate}"))
+                    threading.Thread(target=gate.open_and_close, args=(5, f"Thank you!\nCar: {self.checkout.license_plate}")).start()
 
                     entry = Entry(license_plate=license_plate, gate_id=gate.id, type=Entry.EntryType.Exit,
                                   price=price)
