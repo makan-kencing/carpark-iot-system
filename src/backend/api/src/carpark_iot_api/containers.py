@@ -16,9 +16,9 @@ class ApplicationContainer(containers.DeclarativeContainer):
 
     # Gateways
 
-    db: AsyncDatabase = providers.Singleton(AsyncDatabase)
+    db: AsyncDatabase = providers.Dependency(instance_of=AsyncDatabase)
 
     # Services
 
-    carpark: Carpark = providers.Singleton(Carpark)
+    carpark: Carpark = providers.Dependency(instance_of=Carpark)
 

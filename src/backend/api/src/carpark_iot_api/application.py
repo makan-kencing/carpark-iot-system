@@ -1,3 +1,4 @@
+from dependency_injector import providers
 from fastapi import FastAPI
 from picamera2.encoders import MJPEGEncoder
 from picamera2.outputs import FileOutput
@@ -10,9 +11,6 @@ from carpark_iot_core.db.database import AsyncDatabase
 
 
 def create_app() -> FastAPI:
-    container = ApplicationContainer()
-    container.wire(modules=[endpoints])
-
     settings = CarparkSettings()  # noqa
     settings.firebase.auth()
 
@@ -29,8 +27,8 @@ def create_app() -> FastAPI:
 
     carpark.camera._camera.start_recording(MJPEGEncoder(), FileOutput(endpoints.output))
 
-    container.db = db
-    container.carpark = carpark
+    container = ApplicationContainer(db=providers.Object(db), carpark=providers.Object(carpark))
+    container.wire(modules=[endpoints])
 
     app = FastAPI()
     app.container = container
