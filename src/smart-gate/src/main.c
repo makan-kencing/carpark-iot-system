@@ -50,6 +50,7 @@ static esp_err_t esp_zb_zcl_send_update_cmd(const uint16_t cluster_id, const uin
     return esp_zb_zcl_report_attr_cmd_req(&ph_cmd_req);
 }
 
+#if CONFIG_SMART_GATE_EXIT
 static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, const void* message) {
     switch (callback_id) {
         case ESP_NFC_READ:
@@ -77,6 +78,7 @@ static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, con
             break;
     }
 }
+#endif
 
 static esp_err_t deferred_driver_init(void) {
     static bool is_inited = false;

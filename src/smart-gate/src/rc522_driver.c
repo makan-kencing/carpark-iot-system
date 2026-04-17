@@ -10,6 +10,7 @@
 
 #define BUFFER_SIZE 128
 
+#ifdef CONFIG_SMART_GATE_EXIT
 static const char *TAG = "RC522_DRIVER";
 
 static esp_nfc_callback_t func_ptr;
@@ -69,3 +70,4 @@ void rc522_driver_init(const esp_nfc_callback_t cb, const uint16_t poll_interval
     ESP_ERROR_CHECK(rc522_register_events(scanner, RC522_EVENT_PICC_STATE_CHANGED, on_picc_state_changed, NULL));
     ESP_ERROR_CHECK(rc522_start(scanner));
 }
+#endif
