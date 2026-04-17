@@ -1,8 +1,7 @@
 import io
+import threading
 from datetime import datetime
 from typing import Annotated, Iterable
-
-import threading
 
 from dependency_injector.wiring import inject, Provide
 from fastapi import APIRouter, Request
@@ -48,7 +47,7 @@ class StreamingOutput(io.BufferedIOBase):
         self.condition = threading.Condition()
 
     def notify(self, buf: bytes) -> None:
-         with self.condition:
+        with self.condition:
             self.frame = buf
             self.condition.notify_all()
 
@@ -62,6 +61,29 @@ class MJpegStreamingResponse(StreamingResponse):
 
 state = State()
 output = StreamingOutput()
+
+
+def get_latest_entry(request: Request) -> Iterable:
+    while True:
+        with state.condition:
+            state.condition.wait()
+
+            if state.entry is not None:
+                yield templates.TemplateResponse(request, name="_entry.html", context={
+                    "entry": state.entry
+                })
+
+
+def get_camera_frame() -> Iterable[bytes]:
+    while True:
+        with output.condition:
+            output.condition.wait()
+
+            assert output.frame is not None
+            yield b"--frame\r\n" \
+                  b"Content-Type: image/jpeg\r\n" \
+                  b"Content-Length: " + str(len(output.frame)).encode() + b"\r\n" \
+                + output.frame + b"\r\n"
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -92,27 +114,12 @@ async def get_entries(
 
 @router.get("/hx-entry/stream", response_class=EventSourceResponse)
 def get_entries_stream(request: Request):
-    while True:
-        with state.condition:
-            state.condition.wait()
-
-            if state.entry is not None:
-                yield templates.TemplateResponse(request, name="_entry.html", context={
-                    "entry": state.entry
-                })
+    yield from get_latest_entry(request)
 
 
 @router.get("/camera/live.mjpg", response_class=MJpegStreamingResponse)
-def get_camera_stream() -> Iterable[bytes]:
-    while True:
-        with output.condition:
-            output.condition.wait()
-
-            assert output.frame is not None
-            yield b"--frame\r\n" \
-                  b"Content-Type: image/jpeg\r\n" \
-                  b"Content-Length: " + str(len(output.frame)).encode() + b"\r\n" \
-                + output.frame + b"\r\n"
+def get_camera_stream():
+    return MJpegStreamingResponse(get_camera_frame())
 
 
 __all__ = (
