@@ -3,5 +3,9 @@
     <td>{{ entry.license_plate }}</td>
     <td>{{ entry.gate_id }}</td>
     <td>{{ entry.type.name }}</td>
-    <td>{{ entry.price }}</td>
+    {% if entry.price %}
+        <td>{{ entry.price }}</td>
+    {% else %}
+        <td></td>
+    {% endif %}
 </tr>
