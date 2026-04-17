@@ -83,6 +83,7 @@ def get_camera_frame() -> Iterable[bytes]:
         yield b"--frame\r\n" \
               b"Content-Type: image/jpeg\r\n" \
               b"Content-Length: " + str(len(output.frame)).encode() + b"\r\n" \
+            + b"\r\n" \
             + output.frame + b"\r\n"
 
 

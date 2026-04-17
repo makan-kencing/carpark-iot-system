@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from dependency_injector import providers
 from fastapi import FastAPI
-from picamera2.encoders import JpegEncoder, MJPEGEncoder
+from picamera2.encoders import JpegEncoder
 from picamera2.outputs import FileOutput
 
 from carpark_iot_api import endpoints
@@ -33,7 +33,7 @@ def create_app() -> FastAPI:
         price_per_hour=settings.price_per_hour
     )
 
-    carpark.camera._camera.start_recording(MJPEGEncoder(), FileOutput(endpoints.output))
+    carpark.camera._camera.start_recording(JpegEncoder(), FileOutput(endpoints.output))
 
     container = ApplicationContainer(db=providers.Object(db), carpark=providers.Object(carpark))
     container.wire(modules=[endpoints])
