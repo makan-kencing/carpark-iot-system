@@ -68,10 +68,10 @@ def get_latest_entry(request: Request) -> Iterable:
         with state.condition:
             state.condition.wait()
 
-            if state.entry is not None:
-                yield templates.TemplateResponse(request, name="_entry.html", context={
-                    "entry": state.entry
-                })
+        if state.entry is not None:
+            yield templates.TemplateResponse(request, name="_entry.html", context={
+                "entry": state.entry
+            })
 
 
 def get_camera_frame() -> Iterable[bytes]:
@@ -79,11 +79,11 @@ def get_camera_frame() -> Iterable[bytes]:
         with output.condition:
             output.condition.wait()
 
-            assert output.frame is not None
-            yield b"--frame\r\n" \
-                  b"Content-Type: image/jpeg\r\n" \
-                  b"Content-Length: " + str(len(output.frame)).encode() + b"\r\n" \
-                + output.frame + b"\r\n"
+        assert output.frame is not None
+        yield b"--frame\r\n" \
+              b"Content-Type: image/jpeg\r\n" \
+              b"Content-Length: " + str(len(output.frame)).encode() + b"\r\n" \
+            + output.frame + b"\r\n"
 
 
 @router.get("/", response_class=HTMLResponse)
