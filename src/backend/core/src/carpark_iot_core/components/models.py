@@ -138,7 +138,10 @@ class LicensePlateCamera(Component):
                         if result.ocr.text == old_result.ocr.text:
                             break
                     else:
-                        self.on_detect(result.ocr.text)
+                        try:
+                            self.on_detect(result.ocr.text)
+                        except Exception:
+                            logger.exception("Exception while calling camera callback")
 
             self._predictions = predictions
 

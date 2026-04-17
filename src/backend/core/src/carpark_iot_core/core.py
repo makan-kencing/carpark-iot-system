@@ -39,8 +39,8 @@ class Carpark:
     mqtt_components: dict[str, MqttComponent] = {}
     checkout: CheckoutStatus | None = None
 
-    _entry_gate_id: str
-    _exit_gate_id: str
+    _entry_gate_id: str | None
+    _exit_gate_id: str | None
 
     def __init__(
             self,
@@ -57,6 +57,8 @@ class Carpark:
         self.parking_space_counter = parking_space_indicator
         self.free_grace_period = free_grace_period
         self.price_per_hour = price_per_hour
+        self._entry_gate_id = None
+        self._exit_gate_id = None
 
         self.firebase_db = firebase_db.reference("/")
         self.mqtt_client = Client(CallbackAPIVersion.VERSION2)
@@ -156,6 +158,9 @@ class Carpark:
         self.parking_space_counter.display(total=total, remaining=remaining)
 
     def handle_nfc(self, nfc_data: str) -> None:
+        if self._exit_gate_id is None:
+            return
+
         if not self.checkout:
             return
 
@@ -179,6 +184,9 @@ class Carpark:
 
 
     def handle_car(self, license_plate: str) -> None:
+        if self._entry_gate_id is None or self._exit_gate_id is None:
+            return
+
         stmt = select(Entry) \
             .where(Entry.license_plate == license_plate) \
             .order_by(Entry.timestamp.desc()) \
