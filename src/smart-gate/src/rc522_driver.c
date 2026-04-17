@@ -25,36 +25,33 @@ static rc522_spi_config_t driver_config = {
     },
     .dev_config = {
         .spics_io_num = CONFIG_RC522_SPICS_GPIO,
-        .clock_speed_hz = 1000000,
+        .clock_speed_hz = 10000,  // 10khz
     },
     .rst_io_num = CONFIG_SPI_RST_GPIO,
 };
 
 static void on_picc_state_changed(void *arg, esp_event_base_t base, int32_t event_id, void *data) {
+    ESP_LOGI(TAG, "NFC detected");
+
     const rc522_picc_state_changed_event_t *event = data;
     rc522_picc_t *picc = event->picc;
 
+    rc522_picc_print(picc);
+
     if (picc->state != RC522_PICC_STATE_ACTIVE) {
-        return;
-    }
+        ESP_LOGI(TAG, "Reading card");
+        rc522_nxp_get_type(scanner, picc, &picc->type);
 
-    if (picc->type != RC522_PICC_TYPE_MIFARE_UL) {
-        return;
+        func_ptr(ESP_NFC_READ, &(esp_nfc_callback_message_read_t){
+                     .picc = picc
+                 });
     }
-
-    if (picc->state == RC522_PICC_STATE_IDLE && event->old_state >= RC522_PICC_STATE_ACTIVE) {
+    else if (picc->state == RC522_PICC_STATE_IDLE && event->old_state >= RC522_PICC_STATE_ACTIVE) {
+        ESP_LOGI(TAG, "Removed card");
         func_ptr(ESP_NFC_REMOVE, &(esp_nfc_callback_message_remove_t){
                      .picc = picc
                  });
-        return;
     }
-
-    rc522_nxp_get_type(scanner, picc, &picc->type);
-    rc522_picc_print(picc);
-
-    func_ptr(ESP_NFC_READ, &(esp_nfc_callback_message_read_t){
-                 .picc = picc
-             });
 }
 
 void rc522_driver_init(const esp_nfc_callback_t cb, const uint16_t poll_interval_ms) {
