@@ -4,18 +4,18 @@ from datetime import datetime
 from typing import Annotated, Iterable
 
 from dependency_injector.wiring import inject, Provide
-from fastapi import APIRouter, Request
-from fastapi.params import Depends
+from fastapi import APIRouter, Request, Depends, Form
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import event, Connection, select
+from psycopg2._psycopg import Decimal
+from sqlalchemy import event, Connection, select, update
 from sqlalchemy.orm import Mapper
 from starlette.responses import HTMLResponse, StreamingResponse
 from starlette.staticfiles import StaticFiles
 
 from carpark_iot_api.containers import ApplicationContainer
 from carpark_iot_core.db.database import Database
-from carpark_iot_core.db.models import Entry as DBEntry
+from carpark_iot_core.db.models import Entry as DBEntry, Wallet as DBWallet
 
 router = APIRouter()
 router.mount("/static", StaticFiles(directory="static"), name="static")
@@ -100,23 +100,60 @@ def get_entries(
         count: int = 20
 ):
     with db.session as session:
-        stmt = select(DBEntry)
+        stmt = select(DBEntry) \
+            .order_by(DBEntry.timestamp.desc()) \
+            .limit(count)
         if cursor is not None:
             stmt = stmt.where(DBEntry.timestamp < cursor)
-        stmt = stmt.order_by(DBEntry.timestamp.desc()) \
-            .limit(count)
-        results = (session.scalars(stmt)).all()
+        results = session.scalars(stmt).all()
 
         return templates.TemplateResponse(request, name="_entries.html", context={
             "entries": results
         })
 
 
+@router.get("/hx-wallet", response_class=HTMLResponse)
+@inject
+def get_wallets(
+        request: Request,
+        db: Annotated[Database, Depends(Provide[ApplicationContainer.db])],
+):
+    with db.session as session:
+        stmt = select(DBWallet)
+        results = session.scalars(stmt).all()
+
+        return templates.TemplateResponse(request, name="_wallets.html", context={
+            "wallets": results
+        })
+
+
+@router.post("/hx-wallet/deposit", response_class=HTMLResponse)
+@inject
+def deposit_money(
+        request: Request,
+        db: Annotated[Database, Depends(Provide[ApplicationContainer.db])],
+        nfc_id: Annotated[list[int], Form()],
+        amount: Annotated[Decimal, Form()]
+):
+    with db.session as session:
+        stmt = update(DBWallet)\
+            .where(DBWallet.nfc == bytes(nfc_id)) \
+            .values(balance=DBWallet.balance + amount)
+        result = session.execute(stmt)
+        if not result.rowcount:  # noqa
+            wallet = DBWallet(nfc=bytes(nfc_id), balance=amount)
+            session.add(wallet)
+
+        response = templates.TemplateResponse(request, name="_deposit_money.html")
+        response.headers["HX-Trigger"] = "update-wallet"
+        return response
+
+
 @router.get("/hx-entry/stream", response_class=EventSourceResponse)
 def get_entries_stream(request: Request):
     for entry in get_latest_entry(request):
-        content = templates.TemplateResponse(request, name="_entry.html", context={
-            "entry": entry
+        content = templates.TemplateResponse(request, name="_entries.html", context={
+            "entries": [entry]
         })
         yield ServerSentEvent(raw_data=content.body.replace(b"\n", b""), event="entryupdate")
 
