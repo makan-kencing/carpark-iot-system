@@ -19,7 +19,7 @@ export const definitions = [
                     ID: Zcl.Clusters.genAnalogInput.attributes.maxPresentValue.ID,
                     type: Zcl.DataType.SINGLE_PREC
                 },
-                name: "total_space",
+                name: "total",
                 description: "The total space supported by this parking sensor",
                 access: "STATE_GET"
             }),
@@ -29,7 +29,7 @@ export const definitions = [
                     ID: Zcl.Clusters.genAnalogInput.attributes.presentValue.ID,
                     type: Zcl.DataType.SINGLE_PREC
                 },
-                name: "remaining_space",
+                name: "remaining",
                 description: "The remaining space unoccupied in this parking sensor",
                 access: "STATE_GET"
             })
