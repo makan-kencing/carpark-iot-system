@@ -132,16 +132,17 @@ def get_wallets(
 def deposit_money(
         request: Request,
         db: Annotated[Database, Depends(Provide[ApplicationContainer.db])],
-        nfc_id: Annotated[list[int], Form()],
+        nfc_id: Annotated[list[str], Form()],
         amount: Annotated[Decimal, Form()]
 ):
+    nfc_id: bytes = bytes([int(bit) for bit in nfc_id if bit != ""])
     with db.session as session:
         stmt = update(DBWallet) \
-            .where(DBWallet.nfc == bytes(nfc_id)) \
+            .where(DBWallet.nfc == nfc_id) \
             .values(balance=DBWallet.balance + amount)
         result = session.execute(stmt)
         if not result.rowcount:  # noqa
-            wallet = DBWallet(nfc=bytes(nfc_id), balance=amount)
+            wallet = DBWallet(nfc=nfc_id, balance=amount)
             session.add(wallet)
 
         response = templates.TemplateResponse(request, name="_deposit_money.html")
