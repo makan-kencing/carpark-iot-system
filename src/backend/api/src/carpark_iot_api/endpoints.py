@@ -6,7 +6,7 @@ from typing import Annotated, Iterable
 from dependency_injector.wiring import inject, Provide
 from fastapi import APIRouter, Request
 from fastapi.params import Depends
-from fastapi.sse import EventSourceResponse
+from fastapi.sse import EventSourceResponse, ServerSentEvent
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import event, Connection, select
 from sqlalchemy.orm import Mapper
@@ -116,7 +116,10 @@ def get_entries(
 
 @router.get("/hx-entry/stream", response_class=EventSourceResponse)
 def get_entries_stream(request: Request):
-    yield from get_latest_entry(request)
+    for entry in get_latest_entry(request):
+        yield ServerSentEvent(raw_data=templates.TemplateResponse(request, name="_entry.html", context={
+            "entry": entry
+        }).body, event="entry_update")
 
 
 @router.get("/camera/live.mjpg", response_class=MJpegStreamingResponse)
