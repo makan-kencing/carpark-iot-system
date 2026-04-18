@@ -6,6 +6,7 @@ from abc import ABC
 from dataclasses import dataclass
 from threading import Thread
 from typing import Callable
+from unittest import result
 
 import cv2
 from fast_alpr import ALPR, ALPRResult
@@ -119,19 +120,20 @@ class LicensePlateCamera(Component):
         self._camera.post_callback = self.draw_texts
 
         self._predictions: list[ALPRResult] = []
-        self._thread = threading.Thread(target=self.on_frame)
+        self._thread = threading.Thread(target=self.frame_loop)
         self._thread.start()
 
-    def on_frame(self):
+    def check_confidence(self, result: ALPRResult) -> bool:
+        return (statistics.mean(result.ocr.confidence)
+                if isinstance(result.ocr.confidence, list)
+                else result.ocr.confidence) > self.min_threshold
+
+    def frame_loop(self):
         while True:
             image = self._camera.capture_array()
 
             predictions: list[ALPRResult] = alpr.predict(image[:, :, 0:3])
-            predictions = list(filter(lambda p: (
-                                                    statistics.mean(p.ocr.confidence)
-                                                    if isinstance(p.ocr.confidence, list)
-                                                    else p.ocr.confidence
-                                                ) > self.min_threshold, predictions))
+            predictions = list(filter(lambda p: self.check_confidence(p) and p.ocr.text, predictions))
             if predictions:
                 for result in predictions:
                     for old_result in self._predictions:
