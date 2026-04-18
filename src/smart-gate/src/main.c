@@ -35,12 +35,18 @@
 bool gate_state = false;
 char display_text_attr[4 * 16];
 #if CONFIG_SMART_GATE_EXIT
-char nfc_id_attr[RC522_PICC_UID_SIZE_MAX + 2];
+char nfc_id_attr[RC522_PICC_UID_SIZE_MAX * 2 + 2];
 #endif
 
 static const char *TAG = "MAIN";
 
 #if CONFIG_SMART_GATE_EXIT
+static void write_bytes_hex(char* str_buf, const uint8_t* bytes_buf, const size_t buf_size) {
+    for (int i = 0; i < buf_size; i++) {
+        str_buf += sprintf(str_buf, "%02X", bytes_buf[i]);
+    }
+}
+
 static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, const void* message) {
     switch (callback_id) {
         case ESP_NFC_READ:
@@ -48,9 +54,8 @@ static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, con
             if (callback_id == ESP_NFC_READ) {
                 const esp_nfc_callback_message_read_t* payload = (esp_nfc_callback_message_read_t*) message;
                 if (memcmp(nfc_id_attr, payload->picc->uid.value, payload->picc->uid.length * sizeof(uint8_t)) != 0) {
-                    nfc_id_attr[0] = payload->picc->uid.length;
-                    memcpy(nfc_id_attr + 1, payload->picc->uid.value, payload->picc->uid.length * sizeof(uint8_t));
-                    nfc_id_attr[payload->picc->uid.length + 1] = 0;
+                    nfc_id_attr[0] = payload->picc->uid.length * 2;
+                    write_bytes_hex(nfc_id_attr, payload->picc->uid.value, payload->picc->uid.length);
 
                     // do other stuff when nfc detected for the first time
                 }
