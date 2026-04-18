@@ -1,7 +1,6 @@
 #include "zcl_utility.h"
 
-
-#include "zcl/esp_zigbee_zcl_command.h"
+#include "ha/esp_zigbee_ha_standard.h"
 
 
 esp_err_t zcl_utility_send_update_cmd(
