@@ -144,6 +144,7 @@ def deposit_money(
         if not result.rowcount:  # noqa
             wallet = DBWallet(nfc=nfc_id, balance=amount)
             session.add(wallet)
+        session.commit()
 
         response = templates.TemplateResponse(request, name="_deposit_money.html")
         response.headers["HX-Trigger"] = "update-wallet"
