@@ -24,8 +24,11 @@
 #include <ultrasonic.h>
 #include <stdbool.h>
 
+#include "zcl_utility.h"
 #include "led_driver.h"
-#include "ultrasonic_driver.h"
+#include "ultrasonic_sensor.h"
+
+#define countof(p) sizeof(p) / sizeof(*p)
 
 #if !defined ZB_ED_ROLE
 #error Define ZB_ED_ROLE in idf.py menuconfig to compile light (End Device) source code.
@@ -34,7 +37,7 @@
 #define TOTAL_SPACE 3
 static uint8_t remaining_space = TOTAL_SPACE;
 
-static ultrasonic_t sensors[3] = {
+ultrasonic_sensor_info_t sensors[TOTAL_SPACE] = {
     {{.trigger_pin = CONFIG_TRIGGER_GPIO, .echo_pin = CONFIG_ECHO_GPIO_1}, false, 0},
     {{.trigger_pin = CONFIG_TRIGGER_GPIO, .echo_pin = CONFIG_ECHO_GPIO_2}, false, 0},
     {{.trigger_pin = CONFIG_TRIGGER_GPIO, .echo_pin = CONFIG_ECHO_GPIO_3}, false, 0}
@@ -42,8 +45,48 @@ static ultrasonic_t sensors[3] = {
 
 static const char *TAG = "MAIN";
 
+static void ultrasonic_sensor_handler(const int8_t delta) {
+    remaining_space += delta;
+
+    if (remaining_space == 0) {
+        ESP_LOGI(TAG, "ALL SPACES FULL");
+
+        ESP_ERROR_CHECK(gpio_set_level(CONFIG_RED_LED_GPIO, 1));
+        ESP_ERROR_CHECK(gpio_set_level(CONFIG_GREEN_LED_GPIO, 0));
+    } else {
+        ESP_LOGI(TAG, "SPACE AVAILABLE");
+
+        ESP_ERROR_CHECK(gpio_set_level(CONFIG_RED_LED_GPIO, 0));
+        ESP_ERROR_CHECK(gpio_set_level(CONFIG_GREEN_LED_GPIO, 1));
+    }
+
+    esp_zb_lock_acquire(portMAX_DELAY);
+    esp_zb_zcl_set_attribute_val(
+        HA_ESP_ENDPOINT,
+        ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+        ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID, &remaining_space, false
+    );
+    zcl_utility_send_update_cmd(
+        HA_ESP_ENDPOINT,
+        ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT,
+        ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID
+    );
+    esp_zb_lock_release();
+}
+
 static esp_err_t deferred_driver_init(void) {
-    return ESP_OK;
+    static bool is_inited = false;
+    if (!is_inited) {
+        led_driver_init();
+        ESP_ERROR_CHECK(ultrasonic_sensor_init(
+                &(ultrasonic_sensor_config_t) {
+                .sensors = {sensors, countof(sensors)}
+                }, ultrasonic_sensor_handler, 1)
+        );
+
+        is_inited = true;
+    }
+    return is_inited ? ESP_OK : ESP_FAIL;
 }
 
 static void bdb_start_top_level_commissioning_cb(uint8_t mode_mask) {
@@ -107,7 +150,7 @@ static void esp_zb_task(void *pvParameters) {
     esp_zb_ep_list_t *esp_zb_ep_list = esp_zb_ep_list_create();
 
     esp_zb_temperature_sensor_cfg_t sensor_cfg = ESP_ZB_DEFAULT_TEMPERATURE_SENSOR_CONFIG();
-    /* Set (Min|Max)MeasuredValure */
+    /* Set (Min|Max)MeasuredValue */
     sensor_cfg.temp_meas_cfg.min_value = 0;
     sensor_cfg.temp_meas_cfg.max_value = TOTAL_SPACE * 100;
 
@@ -165,82 +208,6 @@ static void esp_zb_task(void *pvParameters) {
     esp_zb_stack_main_loop();
 }
 
-static void sensor_main(void *pvParameters) {
-    float distances[3] = {};
-
-    led_driver_init();
-    ultrasonic_driver_init(sensors, 3);
-
-    // ReSharper disable once CppDFAEndlessLoop
-    while (true) {
-        bool updated = false;
-        ultrasonic_driver_measure(sensors, distances, 3);
-
-        for (int i = 0; i < 3; i++) {
-            const float delta = 0.05f;
-            ESP_LOGD(TAG, "Sensor %d: %.2f m (baseline: %.2f m, delta: %.2f m)", i, distances[i], sensors[i].baseline_distance_cm, delta);
-
-            if (distances[i] < sensors[i].baseline_distance_cm - delta && !sensors[i].is_occupied) {
-                sensors[i].is_occupied = true;
-                updated = true;
-            } else if (distances[i] >= sensors[i].baseline_distance_cm - delta && sensors[i].is_occupied) {
-                sensors[i].is_occupied = false;
-                updated = true;
-            }
-        }
-
-        // update status only if changed
-        if (updated) {
-            remaining_space = 0;
-            for (int i = 0; i < 3; i++) {
-                if (!sensors[i].is_occupied) {
-                    remaining_space++;
-                }
-            }
-
-            if (remaining_space == 0) {
-                ESP_LOGI(TAG, "ALL SPACES FULL");
-
-                ESP_ERROR_CHECK(gpio_set_level(CONFIG_RED_LED_GPIO, 1));
-                ESP_ERROR_CHECK(gpio_set_level(CONFIG_GREEN_LED_GPIO, 0));
-
-            } else {
-                ESP_LOGI(TAG, "SPACE AVAILABLE");
-
-                ESP_ERROR_CHECK(gpio_set_level(CONFIG_RED_LED_GPIO, 0));
-                ESP_ERROR_CHECK(gpio_set_level(CONFIG_GREEN_LED_GPIO, 1));
-            }
-
-            int16_t measured_value = (int16_t) remaining_space * 100;
-
-            esp_zb_lock_acquire(portMAX_DELAY);
-            esp_zb_zcl_set_attribute_val(
-                HA_ESP_ENDPOINT,
-                ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT,
-                ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
-                ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID,
-                &measured_value,
-                false
-            );
-            esp_zb_lock_release();
-
-            esp_zb_zcl_report_attr_cmd_t report_attr_cmd = {0};
-            report_attr_cmd.address_mode = ESP_ZB_APS_ADDR_MODE_DST_ADDR_ENDP_NOT_PRESENT;
-            report_attr_cmd.attributeID = ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID;
-            report_attr_cmd.direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_CLI;
-            report_attr_cmd.clusterID = ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT;
-            report_attr_cmd.zcl_basic_cmd.src_endpoint = HA_ESP_ENDPOINT;
-
-            esp_zb_lock_acquire(portMAX_DELAY);
-            esp_zb_zcl_report_attr_cmd_req(&report_attr_cmd);
-            esp_zb_lock_release();
-            ESP_EARLY_LOGI(TAG, "Send 'report attributes' command");
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(200));
-    }
-}
-
 
 void app_main(void) {
     vTaskDelay(pdMS_TO_TICKS(5000));
@@ -253,5 +220,4 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_zb_platform_config(&config));
 
     xTaskCreate(esp_zb_task, "Zigbee_main", 4096, NULL, 5, NULL);
-    xTaskCreate(sensor_main, "Sensor_main", 4096, NULL, 5, NULL);
 }
