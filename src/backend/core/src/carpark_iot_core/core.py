@@ -237,11 +237,11 @@ class Carpark:
                 if self._exit_gate_id is None:
                     return
 
-                price = self.calculate_price(entry.timestamp)  # noqa
+                price = self.calculate_price(last_entry.timestamp)
 
                 gate = cast(SmartGate, self.mqtt_components[self._exit_gate_id])
                 if price.is_zero():
-                    threading.Thread(target=gate.open_and_close, args=(5, f"Thank you!\nCar: {self.checkout.license_plate}")).start()
+                    threading.Thread(target=gate.open_and_close, args=(5, f"Thank you!\nCar: {last_entry.license_plate}")).start()
 
                     entry = Entry(license_plate=license_plate, gate_id=gate.id, type=Entry.EntryType.Exit,
                                   price=price)
