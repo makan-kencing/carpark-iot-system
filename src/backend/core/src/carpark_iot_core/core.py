@@ -18,7 +18,7 @@ from carpark_iot_core.components.models import ParkingSpaceIndicator, SmartGate,
 from carpark_iot_core.components.schemas import PermitJoinRequest, SmartParkingSpaceInput, SmartGateOutput, \
     SmartParkingSpaceOutput
 from carpark_iot_core.db.database import Database
-from carpark_iot_core.db.models import Entry
+from carpark_iot_core.db.models import Entry, Wallet
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ class Carpark:
                         payload: SmartGateOutput = SmartGateOutput.model_validate(payload)
 
                         if payload.nfc_data:
-                            self.handle_nfc(payload.nfc_data)
+                            self.handle_nfc(payload.nfc_data.encode())
                     case SmartParkingSpace() as smart_parking_space:
                         payload: SmartParkingSpaceInput = SmartParkingSpaceInput.model_validate(payload)
                         payload.update(smart_parking_space)
@@ -158,7 +158,7 @@ class Carpark:
 
         self.parking_space_counter.display(total=total, remaining=remaining)
 
-    def handle_nfc(self, nfc_data: str) -> None:
+    def handle_nfc(self, nfc_id: bytes) -> None:
         if self._exit_gate_id is None:
             return
 
@@ -166,16 +166,29 @@ class Carpark:
             return
 
         with self.db.session as session:
+            stmt = select(Wallet).where(Wallet.nfc == nfc_id)
+            wallet: Wallet | None = session.scalars(stmt).one_or_none()
+            if wallet is None:
+                return
+
             gate = cast(SmartGate, self.mqtt_components[self._exit_gate_id])
-            threading.Thread(target=gate.open_and_close, args=(5, f"Thank you!\nCar: {self.checkout.license_plate}")).start()
+            if wallet.balance < self.checkout.price:
+                gate.display(f"Car: {self.checkout.license_plate}\nPrice: ${self.checkout.price}\nInsufficient\nbalance")
+                return
+
+            wallet.balance -= self.checkout.price
+            threading.Thread(target=gate.open_and_close, args=(
+                5,
+                f"Thank you!\nCar: {self.checkout.license_plate}\nPrice: RM {self.checkout.price}\nRemaining: RM {wallet.balance}"
+            )).start()
             gate.clear_nfc()
 
             entry = Entry(license_plate=self.checkout.license_plate, gate_id=gate.id, type=Entry.EntryType.Exit,
-                          price=self.checkout.price)
+                          wallet_id=wallet.id, price=self.checkout.price)
             session.add(entry)
             session.commit()
 
-            self.firebase_db.child("entry").set({
+            self.firebase_db.child("entry").push({
                 "timestamp": entry.timestamp.isoformat(),
                 "license_plate": entry.license_plate,
                 "gate_id": entry.gate_id,
@@ -207,7 +220,7 @@ class Carpark:
                 session.add(entry)
                 session.commit()
 
-                self.firebase_db.child("entry").set({
+                self.firebase_db.child("entry").push({
                     "timestamp": entry.timestamp.isoformat(),
                     "license_plate": entry.license_plate,
                     "gate_id": entry.gate_id,
@@ -229,7 +242,7 @@ class Carpark:
                     session.add(entry)
                     session.commit()
 
-                    self.firebase_db.child("entry").set({
+                    self.firebase_db.child("entry").push({
                         "timestamp": entry.timestamp.isoformat(),
                         "license_plate": entry.license_plate,
                         "gate_id": entry.gate_id,
