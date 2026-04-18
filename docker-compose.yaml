@@ -1,19 +1,4 @@
 services:
-    caddy:
-        container_name: caddy
-        image: caddy:alpine
-        restart: unless-stopped
-        ports:
-            - "80:80"
-            - "443:443"
-            - "443:443/udp"
-        volumes:
-            - ./config/caddy:/etc/caddy
-            - ./var/caddy/data:/data
-            - ./var/caddy/config:/config
-        environment:
-            TZ: ${TZ}
-            HOSTNAME: ${HOSTNAME}
     db:
         container_name: db
         image: timescale/timescaledb:latest-pg18
@@ -69,7 +54,6 @@ services:
         volumes:
             - ./var/grafana:/var/lib/grafana
         environment:
-            GF_SERVER_ROOT_URL: grafana.${HOSTNAME}
             GF_PLUGINS_PREINSTALL: grafana-clock-panel
 
 secrets:
