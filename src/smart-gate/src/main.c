@@ -331,8 +331,6 @@ static void esp_zb_task(void *pvParameters) {
 }
 
 void app_main(void) {
-    vTaskDelay(pdMS_TO_TICKS(5000));
-
     esp_zb_platform_config_t config = {
         .radio_config = ESP_ZB_DEFAULT_RADIO_CONFIG(),
         .host_config = ESP_ZB_DEFAULT_HOST_CONFIG(),
