@@ -16,57 +16,98 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
             integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
             crossorigin="anonymous"></script>
+
+    <style>
+        /* Chrome, Safari, Edge, Opera */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* Firefox */
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
 </head>
 <body>
 
-<div class="">
-    <img src="/camera/live.mjpg" alt="" class="img-fluid">
-</div>
-
-<form hx-post="/hx-wallet/deposit">
-    <div class="input-group">
-        <label for="nfc_id" class="input-group-text"></label>
-        {% for _ in range(10) %}
-            <input type="number" name="nfc_id" id="nfc_id" min="0" max="255" step="1" class="form-control">
-        {% endfor %}
+<main class="d-flex flex-column align-items-center justify-content-center p-4 gap-4">
+    <div class="card">
+        <div class="card-header">
+            Live View
+        </div>
+        <div class="card-body">
+            <!--suppress HtmlUnknownTarget -->
+            <img src="/camera/live.mjpg" alt="" class="img-fluid">
+        </div>
     </div>
 
-    <div class="input-group">
-        <label for="amount">RM</label>
-        <input type="number" name="amount" id="amount" min="0" step="0.01" class="form-control">
+    <div class="d-flex gap-4 w-100">
+        <div class="card w-75">
+            <div class="card-header">
+                Entries
+            </div>
+            <div class="card-body">
+                <table class="table table-striped">
+                    <thead>
+                    <tr>
+                        <th scope="col">Timestamp</th>
+                        <th scope="col">License Plate</th>
+                        <th scope="col">Gate</th>
+                        <th scope="col">Type</th>
+                        <th scope="col">Price</th>
+                    </tr>
+                    </thead>
+                    <!--suppress HtmlUnknownAttribute -->
+                    <tbody hx-get="/hx-entry" hx-trigger="load" hx-swap="afterbegin"
+                           hx-ext="sse" sse-connect="/hx-entry/stream" sse-swap="entryupdate"
+                           class="table-hover">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card w-25">
+            <div class="card-header">
+                Wallets
+            </div>
+            <div class="card-body">
+                <form hx-post="/hx-wallet/deposit">
+                    <div class="input-group mb-3">
+                        <label for="nfc_id" class="input-group-text">ID</label>
+                        {% for _ in range(10) %}
+                            <input type="number" name="nfc_id" id="nfc_id" min="0" max="255" step="1"
+                                   class="form-control px-0 text-center">
+                        {% endfor %}
+                    </div>
+
+                    <div class="input-group mb-3">
+                        <label for="amount" class="input-group-text">RM</label>
+                        <input type="number" name="amount" id="amount" min="0" step="0.01" class="form-control">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Deposit</button>
+                </form>
+            </div>
+            <div class="card-body border-top">
+                <table class="table table-striped">
+                    <thead>
+                    <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">NFC ID</th>
+                        <th scope="col">Balance</th>
+                    </tr>
+                    </thead>
+                    <tbody hx-get="/hx-wallet" hx-trigger="load, update-wallet from:body" hx-swap="innerHTML"
+                           class="table-hover">
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
+</main>
 
-    <button type="submit">Deposit</button>
-</form>
-
-<table class="table table-striped">
-    <thead>
-    <tr>
-        <th scope="col">Timestamp</th>
-        <th scope="col">License Plate</th>
-        <th scope="col">Gate</th>
-        <th scope="col">Type</th>
-        <th scope="col">Price</th>
-    </tr>
-    </thead>
-    <!--suppress HtmlUnknownAttribute -->
-    <tbody hx-get="/hx-entry" hx-trigger="load" hx-swap="afterbegin"
-           hx-ext="sse" sse-connect="/hx-entry/stream" sse-swap="entryupdate"
-           class="table-hover">
-    </tbody>
-</table>
-
-<table class="table table-striped">
-    <thead>
-    <tr>
-        <th scope="col">ID</th>
-        <th scope="col">NFC ID</th>
-        <th scope="col">Balance</th>
-    </tr>
-    </thead>
-    <tbody hx-get="/hx-wallet" hx-trigger="load, update-wallet from:body" hx-swap="innerHTML"
-           class="table-hover">
-    </tbody>
-</table>
 </body>
 </html>
