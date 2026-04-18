@@ -64,15 +64,13 @@ def on_new_entry(mapper: Mapper[DBEntry], connection: Connection, target: DBEntr
     state.notify(target)
 
 
-def get_latest_entry(request: Request) -> Iterable:
+def get_latest_entry(request: Request) -> Iterable[DBEntry]:
     while True:
         with state.condition:
             state.condition.wait()
 
         if state.entry is not None:
-            yield templates.TemplateResponse(request, name="_entry.html", context={
-                "entry": state.entry
-            })
+            yield state.entry
 
 
 def get_camera_frame() -> Iterable[bytes]:
@@ -117,9 +115,10 @@ def get_entries(
 @router.get("/hx-entry/stream", response_class=EventSourceResponse)
 def get_entries_stream(request: Request):
     for entry in get_latest_entry(request):
-        yield ServerSentEvent(raw_data=templates.TemplateResponse(request, name="_entry.html", context={
+        content = templates.TemplateResponse(request, name="_entry.html", context={
             "entry": entry
-        }).body, event="entry_update")
+        })
+        yield ServerSentEvent(raw_data=content.body.replace(b"\n", b""), event="entryupdate")
 
 
 @router.get("/camera/live.mjpg", response_class=MJpegStreamingResponse)
