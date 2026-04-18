@@ -1,19 +1,13 @@
 {% for entry in entries %}
-    {% if loop.last %}
+    {% if loop.last and not loop.first %}
         <tr hx-get="/hx-entry?cursor={{ entry.timestamp.timestamp() }}"
             hx-trigger="revealed"
             hx-swap="afterend">
-            <td>{{ entry.timestamp.isoformat() }}</td>
-            <td>{{ entry.license_plate }}</td>
-            <td>{{ entry.gate_id }}</td>
-            <td>{{ entry.type.name }}</td>
-            {% if entry.price %}
-                <td>{{ entry.price }}</td>
-            {% else %}
-                <td></td>
-            {% endif %}
+            {% include "__entry_row.html" %}
         </tr>
     {% else %}
-        {% include "_entry.html" %}
+        <tr>
+            {% include "__entry_row.html" %}
+        </tr>
     {% endif %}
 {% endfor %}

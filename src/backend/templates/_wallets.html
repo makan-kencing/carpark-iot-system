@@ -1,0 +1,7 @@
+{% for wallet in wallets %}
+    <tr>
+        <th scope="row">{{ wallet.id }}</th>
+        <td>{{ wallet.nfc.hex() }}</td>
+        <td>RM {{ wallet.balance }}</td>
+    </tr>
+{% endfor %}
