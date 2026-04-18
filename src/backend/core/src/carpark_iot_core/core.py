@@ -98,7 +98,7 @@ class Carpark:
                         payload: SmartGateOutput = SmartGateOutput.model_validate(payload)
 
                         if payload.nfc_data:
-                            self.handle_nfc(payload.nfc_data.encode())
+                            self.handle_nfc(bytes.fromhex(payload.nfc_data))
                     case SmartParkingSpace() as smart_parking_space:
                         payload: SmartParkingSpaceInput = SmartParkingSpaceInput.model_validate(payload)
                         payload.update(smart_parking_space)
