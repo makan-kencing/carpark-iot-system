@@ -151,7 +151,7 @@ class Carpark:
         if delta_seconds < self.free_grace_period:
             return price
 
-        price += self.price_per_hour * int(delta_seconds // 3600)
+        price += self.price_per_hour * Decimal(delta_seconds / 3600)
 
         return price
 
