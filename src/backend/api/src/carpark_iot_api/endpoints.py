@@ -1,13 +1,13 @@
 import io
 import threading
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated, Iterable
 
 from dependency_injector.wiring import inject, Provide
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from fastapi.templating import Jinja2Templates
-from psycopg2._psycopg import Decimal
 from sqlalchemy import event, Connection, select, update
 from sqlalchemy.orm import Mapper
 from starlette.responses import HTMLResponse, StreamingResponse
@@ -136,7 +136,7 @@ def deposit_money(
         amount: Annotated[Decimal, Form()]
 ):
     with db.session as session:
-        stmt = update(DBWallet)\
+        stmt = update(DBWallet) \
             .where(DBWallet.nfc == bytes(nfc_id)) \
             .values(balance=DBWallet.balance + amount)
         result = session.execute(stmt)
