@@ -57,8 +57,10 @@ class Carpark:
         self.parking_space_counter = parking_space_indicator
         self.free_grace_period = free_grace_period
         self.price_per_hour = price_per_hour
-        self._entry_gate_id = None
-        self._exit_gate_id = None
+        self._entry_gate_id = "x"
+        # self._entry_gate_id = None
+        self._exit_gate_id = "S"
+        # self._exit_gate_id = None
 
         self.firebase_db = firebase_db.reference("/")
         self.mqtt_client = Client(CallbackAPIVersion.VERSION2)
