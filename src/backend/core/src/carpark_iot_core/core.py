@@ -67,12 +67,6 @@ class Carpark:
         self.mqtt_client.connect_async(mqtt_host, mqtt_port)
         self.mqtt_client.loop_start()
 
-        self.init_device({
-            "model_id": "SGEX",
-            "manufacturer": "ESPRESSIF",
-            "friendly_name": "a"
-        })
-
     def on_mqtt_connect(self, client: Client, userdata: Any, flags: ConnectFlags, reason: ReasonCode,
                         properties: Properties | None) -> None:
         logger.info(f"Mqtt connected with result code {reason}")
@@ -211,13 +205,11 @@ class Carpark:
 
         with self.db.session as session:
             last_entry: Entry | None = session.scalars(stmt).one_or_none()
-            print(f"{last_entry=}")
 
             if last_entry is None or last_entry.type is Entry.EntryType.Exit:
                 if self._entry_gate_id is None:
                     return
 
-                print("Opening gate")
                 gate = cast(SmartGate, self.mqtt_components[self._entry_gate_id])
 
                 threading.Thread(target=gate.open_and_close,args=(5, f"Welcome\nCar: {license_plate}")).start()
