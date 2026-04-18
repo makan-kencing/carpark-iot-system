@@ -67,6 +67,12 @@ class Carpark:
         self.mqtt_client.connect_async(mqtt_host, mqtt_port)
         self.mqtt_client.loop_start()
 
+        self.init_device({
+            "model_id": "SGEX",
+            "manufacturer": "ESPRESSIF",
+            "friendly_name": "a"
+        })
+
     def on_mqtt_connect(self, client: Client, userdata: Any, flags: ConnectFlags, reason: ReasonCode,
                         properties: Properties | None) -> None:
         logger.info(f"Mqtt connected with result code {reason}")
