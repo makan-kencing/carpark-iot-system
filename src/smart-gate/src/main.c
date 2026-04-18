@@ -22,6 +22,7 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include "zcl_utility.h"
 #include "i2c_driver.h"
 #include "lcd_driver.h"
 #include "servo_driver.h"
@@ -38,17 +39,6 @@ char nfc_id_attr[RC522_PICC_UID_SIZE_MAX + 2];
 #endif
 
 static const char *TAG = "MAIN";
-
-static esp_err_t esp_zb_zcl_send_update_cmd(const uint16_t cluster_id, const uint16_t attribute_id) {
-    esp_zb_zcl_report_attr_cmd_t ph_cmd_req = {
-        .clusterID = cluster_id,
-        .attributeID = attribute_id,
-        .address_mode = ESP_ZB_APS_ADDR_MODE_DST_ADDR_ENDP_NOT_PRESENT,
-        .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_CLI,
-        .zcl_basic_cmd.src_endpoint = HA_ESP_ENDPOINT
-    };
-    return esp_zb_zcl_report_attr_cmd_req(&ph_cmd_req);
-}
 
 #if CONFIG_SMART_GATE_EXIT
 static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, const void* message) {
@@ -72,7 +62,7 @@ static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, con
             esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
                 HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
                 HA_CONTROL_NFC_ATTR, nfc_id_attr, false);
-            esp_zb_zcl_send_update_cmd(HA_CONTROL_CLUSTER, HA_CONTROL_NFC_ATTR);
+            zcl_utility_send_update_cmd(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, HA_CONTROL_NFC_ATTR);
             esp_zb_lock_release();
 
             break;
@@ -203,7 +193,7 @@ static esp_err_t zb_custom_cmd_handler(const esp_zb_zcl_custom_cluster_command_m
                 esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
                     HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
                     HA_CONTROL_DISPLAY_ATTR, display_text_attr, false);
-                esp_zb_zcl_send_update_cmd(HA_CONTROL_CLUSTER, HA_CONTROL_DISPLAY_ATTR);
+                zcl_utility_send_update_cmd(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, HA_CONTROL_DISPLAY_ATTR);
                 esp_zb_lock_release();
             }
 #if CONFIG_SMART_GATE_EXIT
@@ -216,7 +206,7 @@ static esp_err_t zb_custom_cmd_handler(const esp_zb_zcl_custom_cluster_command_m
                 esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
                     HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
                     HA_CONTROL_NFC_ATTR, nfc_id_attr, false);
-                esp_zb_zcl_send_update_cmd(HA_CONTROL_CLUSTER, HA_CONTROL_NFC_ATTR);
+                zcl_utility_send_update_cmd(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, HA_CONTROL_NFC_ATTR);
                 esp_zb_lock_release();
             }
 #endif
