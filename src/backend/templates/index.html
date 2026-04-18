@@ -29,8 +29,8 @@
             </tr>
         </thead>
         <!--suppress HtmlUnknownAttribute -->
-        <tbody hx-get="/hx-entry" hx-trigger="load" hx-swap="innerHTML"
-                hx-ext="sse" sse-connect="/hx-entry/stream" sse-swap="entry_update">
+        <tbody hx-get="/hx-entry" hx-trigger="load" hx-swap="afterbegin"
+                hx-ext="sse" sse-connect="/hx-entry/stream" sse-swap="entryupdate">
         </tbody>
     </table>
 </body>
