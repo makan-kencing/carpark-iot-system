@@ -76,6 +76,59 @@ static void ultrasonic_sensor_handler(const int8_t delta) {
     esp_zb_lock_release();
 }
 
+static void mock_ultrasonic(void *pvParameters) {
+    while (1) {
+        ESP_LOGI(TAG, "Decreasing 1");
+        ultrasonic_sensor_handler(-1);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        ESP_LOGI(TAG, "Increment 1");
+        ultrasonic_sensor_handler(+1);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        ESP_LOGI(TAG, "Decreasing 1");
+        ultrasonic_sensor_handler(-1);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        ESP_LOGI(TAG, "Decreasing 1");
+        ultrasonic_sensor_handler(-1);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        ESP_LOGI(TAG, "Decreasing 1");
+        ultrasonic_sensor_handler(-1);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        ESP_LOGI(TAG, "Increment 1");
+        ultrasonic_sensor_handler(+1);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        ESP_LOGI(TAG, "Increment 1");
+        ultrasonic_sensor_handler(+1);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        ESP_LOGI(TAG, "Increment 1");
+        ultrasonic_sensor_handler(+1);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+void set_max_current_value() {
+    float max_current_value = TOTAL_SPACE;
+
+    esp_zb_lock_acquire(portMAX_DELAY);
+    esp_zb_zcl_set_attribute_val(
+        HA_ESP_ENDPOINT,
+        ESP_ZB_ZCL_CLUSTER_ID_ANALOG_INPUT, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+        ESP_ZB_ZCL_ATTR_ANALOG_INPUT_MAX_PRESENT_VALUE_ID, &max_current_value, false
+    );
+    zcl_utility_send_update_cmd(
+        HA_ESP_ENDPOINT,
+        ESP_ZB_ZCL_CLUSTER_ID_ANALOG_INPUT,
+        ESP_ZB_ZCL_ATTR_ANALOG_INPUT_MAX_PRESENT_VALUE_ID
+    );
+    esp_zb_lock_release();
+}
+
 static esp_err_t deferred_driver_init(void) {
     static bool is_inited = false;
     if (!is_inited) {
@@ -87,6 +140,7 @@ static esp_err_t deferred_driver_init(void) {
                 .sensors = {sensors, countof(sensors)}
                 }, ultrasonic_sensor_handler, 1)
         );
+        // xTaskCreate(mock_ultrasonic, "mock_ultrasonic", 4096, NULL, 5, NULL);
 
         is_inited = true;
     }
