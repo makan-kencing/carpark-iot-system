@@ -36,6 +36,7 @@
 
 #define TOTAL_SPACE 3
 static uint8_t remaining_space = TOTAL_SPACE;
+static float remaining_space_attr = TOTAL_SPACE;
 
 ultrasonic_sensor_info_t sensors[TOTAL_SPACE] = {
     {{.trigger_pin = CONFIG_TRIGGER_GPIO, .echo_pin = CONFIG_ECHO_GPIO_1}, false, 0},
@@ -60,16 +61,17 @@ static void ultrasonic_sensor_handler(const int8_t delta) {
         ESP_ERROR_CHECK(gpio_set_level(CONFIG_GREEN_LED_GPIO, 1));
     }
 
+    remaining_space_attr = remaining_space;
     esp_zb_lock_acquire(portMAX_DELAY);
     esp_zb_zcl_set_attribute_val(
         HA_ESP_ENDPOINT,
-        ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
-        ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID, &remaining_space, false
+        ESP_ZB_ZCL_CLUSTER_ID_ANALOG_INPUT, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+        ESP_ZB_ZCL_ATTR_ANALOG_INPUT_PRESENT_VALUE_ID, &remaining_space_attr, false
     );
     zcl_utility_send_update_cmd(
         HA_ESP_ENDPOINT,
-        ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT,
-        ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID
+        ESP_ZB_ZCL_CLUSTER_ID_ANALOG_INPUT,
+        ESP_ZB_ZCL_ATTR_ANALOG_INPUT_PRESENT_VALUE_ID
     );
     esp_zb_lock_release();
 }
@@ -149,14 +151,15 @@ static void esp_zb_task(void *pvParameters) {
 
     esp_zb_ep_list_t *esp_zb_ep_list = esp_zb_ep_list_create();
 
-    esp_zb_temperature_sensor_cfg_t sensor_cfg = ESP_ZB_DEFAULT_TEMPERATURE_SENSOR_CONFIG();
-    /* Set (Min|Max)MeasuredValue */
-    sensor_cfg.temp_meas_cfg.min_value = 0;
-    sensor_cfg.temp_meas_cfg.max_value = TOTAL_SPACE * 100;
+    esp_zb_analog_input_cluster_cfg_t analog_input_cfg = { .present_value = TOTAL_SPACE };
+    esp_zb_basic_cluster_cfg_t basic_cluster_cfg =  {
+        .zcl_version = ESP_ZB_ZCL_BASIC_ZCL_VERSION_DEFAULT_VALUE,
+        .power_source = ESP_ZB_ZCL_BASIC_POWER_SOURCE_DEFAULT_VALUE,
+    };
 
     // --------------------------------- Endpoint 1 -- Basic Cluster -------------------------------------
     /* basic cluster */
-    esp_zb_attribute_list_t *esp_zb_basic_cluster = esp_zb_basic_cluster_create(&sensor_cfg.basic_cfg);;
+    esp_zb_attribute_list_t *esp_zb_basic_cluster = esp_zb_basic_cluster_create(&basic_cluster_cfg);;
     esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID, MANUFACTURER_NAME);
     esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID, MODEL_IDENTIFIER);
 
@@ -164,15 +167,19 @@ static void esp_zb_task(void *pvParameters) {
     esp_zb_attribute_list_t *esp_zb_identify_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_IDENTIFY);
 
     /* Create customized temperature sensor endpoint */
-    esp_zb_attribute_list_t *temperature_cluster = esp_zb_temperature_meas_cluster_create(&sensor_cfg.temp_meas_cfg);
-    esp_zb_attribute_list_t *temperature_identify_cluster = esp_zb_identify_cluster_create(&sensor_cfg.identify_cfg);
+    float min_remaining_space = 0;
+    float max_remaining_space = TOTAL_SPACE;
+
+    esp_zb_attribute_list_t *analog_input_cluster = esp_zb_analog_input_cluster_create(&analog_input_cfg);
+    esp_zb_analog_input_cluster_add_attr(analog_input_cluster, ESP_ZB_ZCL_ATTR_ANALOG_INPUT_PRESENT_VALUE_ID, &remaining_space_attr);
+    esp_zb_analog_input_cluster_add_attr(analog_input_cluster, ESP_ZB_ZCL_ATTR_ANALOG_INPUT_MIN_PRESENT_VALUE_ID, &min_remaining_space);
+    esp_zb_analog_input_cluster_add_attr(analog_input_cluster, ESP_ZB_ZCL_ATTR_ANALOG_INPUT_MAX_PRESENT_VALUE_ID, &max_remaining_space);
 
     /* create cluster lists for this endpoint */
     esp_zb_cluster_list_t *esp_zb_cluster_list = esp_zb_zcl_cluster_list_create();
     esp_zb_cluster_list_add_basic_cluster(esp_zb_cluster_list, esp_zb_basic_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
     esp_zb_cluster_list_add_identify_cluster(esp_zb_cluster_list, esp_zb_identify_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
-    esp_zb_cluster_list_add_identify_cluster(esp_zb_cluster_list, temperature_identify_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
-    esp_zb_cluster_list_add_temperature_meas_cluster(esp_zb_cluster_list, temperature_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
+    esp_zb_cluster_list_add_analog_input_cluster(esp_zb_cluster_list, analog_input_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
 
     const esp_zb_endpoint_config_t endpoint_config = {
         .endpoint = HA_ESP_ENDPOINT,

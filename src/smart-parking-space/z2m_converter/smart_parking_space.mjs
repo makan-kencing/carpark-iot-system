@@ -1,12 +1,5 @@
 import * as m from "zigbee-herdsman-converters/lib/modernExtend";
-
-const smartParkingSpaceExtend = {
-    endpoints: () => m.deviceEndpoints({
-        "endpoints": {
-            "basic": 1,
-        }
-    }),
-}
+import {Zcl} from "zigbee-herdsman";
 
 export const definitions = [
     {
@@ -15,9 +8,31 @@ export const definitions = [
         vendor: "ESPRESSIF",
         description: "Smart parking space (3 spaces)",
         extend: [
-            smartParkingSpaceExtend.endpoints(),
+            m.quirkAddEndpointCluster({
+                endpointID: 1,
+                inputClusters: ["genAnalogInput"]
+            }),
             m.identify(),
-            m.temperature(),
+            m.numeric({
+                cluster: Zcl.Clusters.genAnalogInput.ID,
+                attribute: {
+                    ID: Zcl.Clusters.genAnalogInput.attributes.maxPresentValue.ID,
+                    type: Zcl.DataType.SINGLE_PREC
+                },
+                name: "total_space",
+                description: "The total space supported by this parking sensor",
+                access: "STATE_GET"
+            }),
+            m.numeric({
+                cluster: Zcl.Clusters.genAnalogInput.ID,
+                attribute: {
+                    ID: Zcl.Clusters.genAnalogInput.attributes.presentValue.ID,
+                    type: Zcl.DataType.SINGLE_PREC
+                },
+                name: "remaining_space",
+                description: "The remaining space unoccupied in this parking sensor",
+                access: "STATE_GET"
+            })
         ]
     }
 ];
