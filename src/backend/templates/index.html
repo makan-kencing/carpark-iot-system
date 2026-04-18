@@ -38,10 +38,8 @@
         <div class="card-header">
             Live View
         </div>
-        <div class="card-body">
-            <!--suppress HtmlUnknownTarget -->
-            <img src="/camera/live.mjpg" alt="" class="img-fluid">
-        </div>
+        <!--suppress HtmlUnknownTarget -->
+        <img src="/camera/live.mjpg" alt="" class="img-fluid">
     </div>
 
     <div class="d-flex gap-4 w-100">
@@ -74,7 +72,7 @@
                 Wallets
             </div>
             <div class="card-body">
-                <form hx-post="/hx-wallet/deposit">
+                <form hx-post="/hx-wallet/deposit" hx-swap="none">
                     <div class="input-group mb-3">
                         <label for="nfc_id" class="input-group-text">ID</label>
                         {% for _ in range(10) %}
