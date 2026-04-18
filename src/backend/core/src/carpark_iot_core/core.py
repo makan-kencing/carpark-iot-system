@@ -199,7 +199,7 @@ class Carpark:
                 "license_plate": entry.license_plate,
                 "gate_id": entry.gate_id,
                 "type": entry.type.name,
-                "price": entry.price
+                "price": str(entry.price)
             })
 
 
@@ -230,8 +230,7 @@ class Carpark:
                     "timestamp": entry.timestamp.isoformat(),
                     "license_plate": entry.license_plate,
                     "gate_id": entry.gate_id,
-                    "type": entry.type.name,
-                    "price": entry.price
+                    "type": entry.type.name
                 })
             else:
                 if self._exit_gate_id is None:
@@ -253,7 +252,7 @@ class Carpark:
                         "license_plate": entry.license_plate,
                         "gate_id": entry.gate_id,
                         "type": entry.type.name,
-                        "price": entry.price
+                        "price": str(entry.price)
                     })
                 else:
                     gate.display(f"Car: {license_plate}\nPrice: ${price}")
