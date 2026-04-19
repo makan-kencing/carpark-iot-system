@@ -61,6 +61,11 @@ class Carpark:
         self._exit_gate_id = None
 
         self.firebase_db = firebase_db.reference("/")
+        self.firebase_db.child("gate/entry/state").listen(
+            lambda e: self._handle_entry_gate_firebase(self._entry_gate_id or "", e))
+        self.firebase_db.child("gate/exit/state").listen(
+            lambda e: self._handle_entry_gate_firebase(self._entry_gate_id or "", e))
+
         self.mqtt_client = Client(CallbackAPIVersion.VERSION2)
         self.mqtt_client.on_connect = self.on_mqtt_connect
         self.mqtt_client.on_message = self.on_mqtt_message
@@ -77,6 +82,17 @@ class Carpark:
             id="b",
             _mqtt_client=self.mqtt_client
         )
+
+    def _handle_entry_gate_firebase(self, gate_id: str, event: firebase_db.Event):
+        gate: MqttComponent | None = self.mqtt_components.get(gate_id)
+        if gate is None:
+            return
+        gate: SmartGate
+
+        if json.loads(event.data):
+            gate.open()
+        else:
+            gate.close()
 
     def on_mqtt_connect(self, client: Client, userdata: Any, flags: ConnectFlags, reason: ReasonCode,
                         properties: Properties | None) -> None:
