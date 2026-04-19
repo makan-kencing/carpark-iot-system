@@ -67,6 +67,8 @@ class Carpark:
         self.mqtt_client.connect_async(mqtt_host, mqtt_port)
         self.mqtt_client.loop_start()
 
+        self.parking_space_counter.display(0, 1)
+
     def on_mqtt_connect(self, client: Client, userdata: Any, flags: ConnectFlags, reason: ReasonCode,
                         properties: Properties | None) -> None:
         logger.info(f"Mqtt connected with result code {reason}")
