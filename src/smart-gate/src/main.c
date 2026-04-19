@@ -30,6 +30,8 @@
 #include "driver/ledc.h"
 
 #define BUZZER_PIN 10
+#define LED_RED_PIN 2
+#define LED_GREEN_PIN 3
 
 #if !defined ZB_ED_ROLE
 #error Define ZB_ED_ROLE in idf.py menuconfig to compile light (End Device) source code.
@@ -387,6 +389,30 @@ void buzzer_on(void) {
     // Set duty cycle back to 0% to turn the buzzer OFF
     ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+}
+
+void init_leds(void) {
+    // config red led
+    gpio_reset_pin(LED_RED_PIN);
+    gpio_set_direction(LED_RED_PIN, GPIO_MODE_OUTPUT);
+
+    // config green led
+    gpio_reset_pin(LED_GREEN_PIN);
+    gpio_set_direction(LED_GREEN_PIN, GPIO_MODE_OUTPUT);
+
+    // default for red always on
+    gpio_set_level(LED_RED_PIN, 1);
+    gpio_set_level(LED_GREEN_PIN, 0);
+}
+
+void led_gate_open(void) {
+    gpio_set_level(LED_RED_PIN, 0);
+    gpio_set_level(LED_GREEN_PIN, 1);
+}
+
+void led_gate_close(void) {
+    gpio_set_level(LED_RED_PIN, 1);
+    gpio_set_level(LED_GREEN_PIN, 0);
 }
 
 void app_main(void) {
