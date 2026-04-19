@@ -69,6 +69,15 @@ class Carpark:
 
         self.parking_space_counter.display(0, 1)
 
+        self.mqtt_components["a"] = SmartParkingSpace(
+            id="a",
+            _mqtt_client=self.mqtt_client
+        )
+        self.mqtt_components["b"] = SmartGate(
+            id="b",
+            _mqtt_client=self.mqtt_client
+        )
+
     def on_mqtt_connect(self, client: Client, userdata: Any, flags: ConnectFlags, reason: ReasonCode,
                         properties: Properties | None) -> None:
         logger.info(f"Mqtt connected with result code {reason}")
