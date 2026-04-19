@@ -32,10 +32,12 @@
 #error Define ZB_ED_ROLE in idf.py menuconfig to compile light (End Device) source code.
 #endif
 
+#define NFC_ATTR_LENGTH (RC522_PICC_UID_SIZE_MAX * 2 + 2)
+
 bool gate_state = false;
 char display_text_attr[4 * 16];
 #if CONFIG_SMART_GATE_EXIT
-char nfc_id_attr[RC522_PICC_UID_SIZE_MAX * 2 + 2];
+char nfc_id_attr[NFC_ATTR_LENGTH];
 #endif
 
 static const char *TAG = "MAIN";
@@ -53,9 +55,13 @@ static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, con
         case ESP_NFC_REMOVE:
             if (callback_id == ESP_NFC_READ) {
                 const esp_nfc_callback_message_read_t* payload = (esp_nfc_callback_message_read_t*) message;
-                if (memcmp(nfc_id_attr, payload->picc->uid.value, payload->picc->uid.length * sizeof(uint8_t)) != 0) {
-                    nfc_id_attr[0] = payload->picc->uid.length * 2;
-                    write_bytes_hex(nfc_id_attr, payload->picc->uid.value, payload->picc->uid.length);
+
+                char current_nfc[NFC_ATTR_LENGTH];
+                current_nfc[0] = payload->picc->uid.length * 2;
+                write_bytes_hex(nfc_id_attr, payload->picc->uid.value, payload->picc->uid.length);
+
+                if (strcmp(current_nfc + 1, nfc_id_attr) == 0) {
+                    strlcpy(nfc_id_attr, current_nfc, NFC_ATTR_LENGTH);
 
                     // do other stuff when nfc detected for the first time
                 }
