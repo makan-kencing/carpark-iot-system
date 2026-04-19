@@ -27,6 +27,9 @@
 #include "lcd_driver.h"
 #include "servo_driver.h"
 #include "rc522_driver.h"
+#include "driver/ledc.h"
+
+#define BUZZER_PIN 10
 
 #if !defined ZB_ED_ROLE
 #error Define ZB_ED_ROLE in idf.py menuconfig to compile light (End Device) source code.
@@ -64,6 +67,8 @@ static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, con
                     strlcpy(nfc_id_attr, current_nfc, NFC_ATTR_LENGTH);
 
                     // do other stuff when nfc detected for the first time
+                    init_buzzer();
+                    beep_success();
                 }
             } else {
                 nfc_id_attr[0] = 0;
@@ -339,6 +344,49 @@ static void esp_zb_task(void *pvParameters) {
     esp_zb_set_primary_network_channel_set(ESP_ZB_PRIMARY_CHANNEL_MASK);
     ESP_ERROR_CHECK(esp_zb_start(false));
     esp_zb_stack_main_loop();
+}
+
+void init_buzzer(void) {
+    // Configure the LEDC timer for the PWM signal
+    ledc_timer_config_t ledc_timer = {
+        .speed_mode       = LEDC_LOW_SPEED_MODE,
+        .timer_num        = LEDC_TIMER_0,
+        .duty_resolution  = LEDC_TIMER_13_BIT, // 13-bit resolution (0-8192)
+        .freq_hz          = 2000,              // 2 kHz frequency
+        .clk_cfg          = LEDC_AUTO_CLK
+    };
+    ledc_timer_config(&ledc_timer);
+
+    // Configure the LEDC channel to attach to the GPIO pin
+    ledc_channel_config_t ledc_channel = {
+        .speed_mode     = LEDC_LOW_SPEED_MODE,
+        .channel        = LEDC_CHANNEL_0,
+        .timer_sel      = LEDC_TIMER_0,
+        .intr_type      = LEDC_INTR_DISABLE,
+        .gpio_num       = BUZZER_PIN,
+        .duty           = 0,                   // Start OFF
+        .hpoint         = 0
+    };
+    ledc_channel_config(&ledc_channel);
+}
+
+void buzzer_on(void) {
+    // Set duty cycle to 50% (4096 out of 8192) to turn the buzzer ON
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 4096);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 4096);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    // Set duty cycle back to 0% to turn the buzzer OFF
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
 }
 
 void app_main(void) {
