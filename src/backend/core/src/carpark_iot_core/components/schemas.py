@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Literal, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from carpark_iot_core.components.models import SmartParkingSpace
+    from carpark_iot_core.components.models import SmartParkingSpace, SmartGate
 
 type State = Literal["ON", "OFF"]
 
@@ -30,6 +30,9 @@ class SmartGateInput(BaseModel):
     display_text: str | None
     nfc_data: str | None
 
+    def update(self, o: "SmartGate") -> None:
+        o.status = self.gate
+
 
 class SmartGateOutput(BaseModel):
     gate: State | None = None
@@ -40,6 +43,7 @@ class SmartGateOutput(BaseModel):
 
 
 __all__ = (
+    "State",
     "PermitJoinRequest",
     "SmartGateInput",
     "SmartGateOutput",

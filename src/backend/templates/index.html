@@ -32,11 +32,11 @@
     </style>
 </head>
 <body>
-<header class="p-3 pb-0">
+<header class="p-3 pb-0 mb-3">
     <h2>Carpark IoT System</h2>
 </header>
 
-<main class="d-flex flex-column align-items-center justify-content-center p-4 gap-4">
+<main class="d-flex flex-column align-items-center justify-content-center mx-2 gap-4">
     <div class="card">
         <div class="card-header">
             Live View
@@ -46,27 +46,32 @@
     </div>
 
     <div class="d-flex gap-4 w-100">
-        <div class="card w-75">
-            <div class="card-header">
-                Entries
+        <div class="w-75">
+            <div hx-get="/hx-component" hx-trigger="load, update-components from:body delay 0.5s, retry 2s" hx-swap="innerHTML"
+                 class="row">
             </div>
-            <div class="card-body">
-                <table class="table table-striped">
-                    <thead>
-                    <tr>
-                        <th scope="col">Timestamp</th>
-                        <th scope="col">License Plate</th>
-                        <th scope="col">Gate</th>
-                        <th scope="col">Type</th>
-                        <th scope="col">Price</th>
-                    </tr>
-                    </thead>
-                    <!--suppress HtmlUnknownAttribute -->
-                    <tbody hx-get="/hx-entry" hx-trigger="load" hx-swap="afterbegin"
-                           hx-ext="sse" sse-connect="/hx-entry/stream" sse-swap="entryupdate"
-                           class="table-hover">
-                    </tbody>
-                </table>
+            <div class="card">
+                <div class="card-header">
+                    Entries
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead>
+                        <tr>
+                            <th scope="col">Timestamp</th>
+                            <th scope="col">License Plate</th>
+                            <th scope="col">Gate</th>
+                            <th scope="col">Type</th>
+                            <th scope="col">Price</th>
+                        </tr>
+                        </thead>
+                        <!--suppress HtmlUnknownAttribute -->
+                        <tbody hx-get="/hx-entry" hx-trigger="load" hx-swap="afterbegin"
+                               hx-ext="sse" sse-connect="/hx-entry/stream" sse-swap="entryupdate"
+                               class="table-hover">
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -101,7 +106,7 @@
                         <th scope="col">Balance</th>
                     </tr>
                     </thead>
-                    <tbody hx-get="/hx-wallet" hx-trigger="load, update-wallet from:body" hx-swap="innerHTML"
+                    <tbody hx-get="/hx-wallet" hx-trigger="load, update-wallet from:body, every 2s" hx-swap="innerHTML"
                            class="table-hover">
                     </tbody>
                 </table>

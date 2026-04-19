@@ -1,0 +1,14 @@
+<div class="card">
+    <div class="card-header">
+        Smart Gate {{ id }}
+    </div>
+    <div class="card-body">
+        <p>Status: {{ component.status }}</p>
+        <div class="btn-group">
+            <button hx-post="/hx-component/gate/{{ id }}/state/ON" hx-swap="null"
+                    type="button" class="btn btn-primary">Open</button>
+            <button hx-post="/hx-component/gate/{{ id }}/state/OFF" hx-swap="null"
+                    type="button" class="btn btn-primary">Close</button>
+        </div>
+    </div>
+</div>

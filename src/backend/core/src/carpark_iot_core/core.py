@@ -15,8 +15,8 @@ from sqlalchemy import select
 
 from carpark_iot_core.components.models import ParkingSpaceIndicator, SmartGate, SmartParkingSpace, \
     LicensePlateCamera, MqttComponent
-from carpark_iot_core.components.schemas import PermitJoinRequest, SmartParkingSpaceInput, SmartGateOutput, \
-    SmartParkingSpaceOutput
+from carpark_iot_core.components.schemas import PermitJoinRequest, SmartParkingSpaceInput, \
+    SmartParkingSpaceOutput, SmartGateInput
 from carpark_iot_core.db.database import Database
 from carpark_iot_core.db.models import Entry, Wallet
 
@@ -91,7 +91,8 @@ class Carpark:
                 payload: dict[str, Any]
                 match self.mqtt_components.get(friendly_name):
                     case SmartGate() as smart_gate if friendly_name == self._exit_gate_id:
-                        payload: SmartGateOutput = SmartGateOutput.model_validate(payload)
+                        payload: SmartGateInput = SmartGateInput.model_validate(payload)
+                        payload.update(smart_gate)
 
                         if payload.nfc_data:
                             self.handle_nfc(bytes.fromhex(payload.nfc_data))

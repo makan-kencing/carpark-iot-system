@@ -5,8 +5,7 @@ import time
 from abc import ABC
 from dataclasses import dataclass
 from threading import Thread
-from typing import Callable
-from unittest import result
+from typing import Callable, Literal
 
 import cv2
 from fast_alpr import ALPR, ALPRResult
@@ -15,7 +14,7 @@ from libcamera import controls, Transform
 from paho.mqtt.client import Client
 from picamera2 import Picamera2, MappedArray, Preview
 
-from carpark_iot_core.components.schemas import SmartGateOutput
+from carpark_iot_core.components.schemas import SmartGateOutput, State
 
 alpr = ALPR(
     detector_model="yolo-v9-t-384-license-plate-end2end",
@@ -47,6 +46,8 @@ class SmartParkingSpace(MqttComponent):
 
 @dataclass(slots=True)
 class SmartGate(MqttComponent):
+    status: State = "OFF"
+
     def open(self) -> None:
         self._mqtt_client.publish(f"zigbee2mqtt/{self.id}/set",
                                   SmartGateOutput(gate="ON").model_dump_json(exclude_none=True))

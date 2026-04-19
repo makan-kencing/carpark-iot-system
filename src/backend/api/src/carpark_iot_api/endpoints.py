@@ -5,15 +5,18 @@ from decimal import Decimal
 from typing import Annotated, Iterable
 
 from dependency_injector.wiring import inject, Provide
-from fastapi import APIRouter, Request, Depends, Form
+from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import event, Connection, select, update
 from sqlalchemy.orm import Mapper
 from starlette.responses import HTMLResponse, StreamingResponse
 from starlette.staticfiles import StaticFiles
+from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND, HTTP_418_IM_A_TEAPOT
 
 from carpark_iot_api.containers import ApplicationContainer
+from carpark_iot_core.core import Carpark
+from carpark_iot_core.components.models import SmartGate, SmartParkingSpace
 from carpark_iot_core.db.database import Database
 from carpark_iot_core.db.models import Entry as DBEntry, Wallet as DBWallet
 
@@ -112,6 +115,51 @@ def get_entries(
         })
 
 
+@router.get("/hx-component", response_class=HTMLResponse)
+@inject
+def get_components(
+        request: Request,
+        carpark: Annotated[Carpark, Depends(Provide[ApplicationContainer.carpark])]
+):
+    contents = []
+    for component_id, component in carpark.mqtt_components.items():
+        if isinstance(component, SmartGate):
+            contents.append(templates.TemplateResponse(request, name="_smart_gate_component.html", context={
+                "id": component_id,
+                "component": component
+            }))
+        elif isinstance(component, SmartParkingSpace):
+            contents.append(templates.TemplateResponse(request, name="_smart_parking_space_component.html", context={
+                "id": component_id,
+                "component": component
+            }))
+    return HTMLResponse(content="".join(content.content for content in contents), status_code=HTTP_200_OK)
+
+@router.post("/hx-component/gate/{gate_id}/state/{state}", response_class=HTMLResponse)
+@inject
+def set_gate_state(
+        request: Request,
+        carpark: Annotated[Carpark, Depends(Provide[ApplicationContainer.carpark])],
+        gate_id: str,
+        state: str
+):
+    component = carpark.mqtt_components.get(gate_id)
+    if component is None:
+        raise HTTPException(status_code=HTTP_404_NOT_FOUND)
+
+    if not isinstance(component, SmartGate):
+        raise HTTPException(status_code=HTTP_418_IM_A_TEAPOT, detail=f"The component is not a {SmartGate.__name__}")
+
+    if state == "ON":
+        component.open()
+    elif state == "OFF":
+        component.close()
+
+    return templates.TemplateResponse(request, name="_set_gate_state.html", headers={
+        "HX-Trigger": "update-components"
+    })
+
+
 @router.get("/hx-wallet", response_class=HTMLResponse)
 @inject
 def get_wallets(
@@ -146,9 +194,9 @@ def deposit_money(
             session.add(wallet)
         session.commit()
 
-        response = templates.TemplateResponse(request, name="_deposit_money.html")
-        response.headers["HX-Trigger"] = "update-wallet"
-        return response
+        return templates.TemplateResponse(request, name="_deposit_money.html", headers={
+            "HX-Trigger": "update-wallet"
+        })
 
 
 @router.get("/hx-entry/stream", response_class=EventSourceResponse)
