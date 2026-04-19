@@ -86,9 +86,9 @@ class ParkingSpaceIndicator(Component):
     def display(self, remaining: int, total: int) -> None:
         self.char.value = str(remaining)
         self.lights.value = (
-            remaining / total > 0.66,
+            remaining == 0,
             0.66 >= remaining / total > 0.33,
-            remaining == 0
+            remaining / total > 0.66
         )
 
 
