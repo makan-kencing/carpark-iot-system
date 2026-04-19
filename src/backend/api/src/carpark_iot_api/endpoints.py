@@ -133,7 +133,7 @@ def get_components(
                 "id": component_id,
                 "component": component
             }))
-    return HTMLResponse(content="".join(content.content for content in contents), status_code=HTTP_200_OK)
+    return HTMLResponse(content="".join(content.body.decode() for content in contents), status_code=HTTP_200_OK)
 
 @router.post("/hx-component/gate/{gate_id}/state/{state}", response_class=HTMLResponse)
 @inject
