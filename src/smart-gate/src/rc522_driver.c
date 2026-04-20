@@ -49,8 +49,6 @@ static void on_picc_state_changed(void *arg, esp_event_base_t base, int32_t even
 
     if (picc->state != RC522_PICC_STATE_ACTIVE) {
         ESP_LOGI(TAG, "Reading card");
-        rc522_nxp_get_type(scanner, picc, &picc->type);
-
         func_ptr(ESP_NFC_READ, &(esp_nfc_callback_message_read_t){
                      .picc = picc
                  });
