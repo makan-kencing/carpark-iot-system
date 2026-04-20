@@ -72,16 +72,8 @@ class Carpark:
         self.mqtt_client.connect_async(mqtt_host, mqtt_port)
         self.mqtt_client.loop_start()
 
-        self.parking_space_counter.display(0, 1)
+        self.parking_space_counter.display(30, 30)
 
-        self.mqtt_components["a"] = SmartParkingSpace(
-            id="a",
-            _mqtt_client=self.mqtt_client
-        )
-        self.mqtt_components["b"] = SmartGate(
-            id="b",
-            _mqtt_client=self.mqtt_client
-        )
 
     def _handle_entry_gate_firebase(self, gate_id: str, event: firebase_db.Event):
         gate: MqttComponent | None = self.mqtt_components.get(gate_id)

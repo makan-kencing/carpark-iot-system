@@ -1,4 +1,5 @@
 import logging
+import os
 import statistics
 import threading
 import time
@@ -104,7 +105,7 @@ class LicensePlateCamera(Component):
 
     THRESHOLD = 50
 
-    def __init__(self, on_detect: Callable[[str], None], *, min_threshold: float = 0.98):
+    def __init__(self, on_detect: Callable[[str], None], *, min_threshold: float = 0.95):
         self.on_detect = on_detect
         self.min_threshold = min_threshold
 
@@ -115,7 +116,8 @@ class LicensePlateCamera(Component):
             controls={"FrameRate": 10, "AfMode": controls.AfModeEnum.Continuous}
         )
         self._camera.configure(camera_config)
-        self._camera.start_preview(Preview.QTGL)
+        if "DISPLAY" in os.environ:
+            self._camera.start_preview(Preview.QTGL)
         self._camera.start()
 
         self._camera.post_callback = self.draw_texts
@@ -132,7 +134,6 @@ class LicensePlateCamera(Component):
     def frame_loop(self):
         while True:
             image = self._camera.capture_array()
-
             predictions: list[ALPRResult] = alpr.predict(image[:, :, 0:3])
             predictions = list(filter(lambda p: self.check_confidence(p) and p.ocr.text, predictions))
             if predictions:
