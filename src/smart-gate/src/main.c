@@ -75,7 +75,7 @@ static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, con
                 if (strcmp(current_nfc + 1, nfc_id_attr) != 0) {
                     strlcpy(nfc_id_attr, current_nfc, NFC_ATTR_LENGTH);
 
-                    buzzer_driver_pulse();
+                    buzzer_driver_pulse(pdMS_TO_TICKS(100));
                 }
             } else {
                 nfc_id_attr[0] = 0;

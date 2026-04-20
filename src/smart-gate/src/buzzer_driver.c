@@ -34,21 +34,11 @@ esp_err_t buzzer_driver_init() {
     return ESP_OK;
 }
 
-esp_err_t buzzer_driver_pulse() {
+esp_err_t buzzer_driver_pulse(const TickType_t delay) {
     // Set duty cycle to 50% (4096 out of 8192) to turn the buzzer ON
     ESP_RETURN_ON_ERROR(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 4096), TAG,);
     ESP_RETURN_ON_ERROR(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1), TAG,);
-    vTaskDelay(pdMS_TO_TICKS(100));
-
-    ESP_RETURN_ON_ERROR(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 0), TAG,);
-    ESP_RETURN_ON_ERROR(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1), TAG,);
-    vTaskDelay(pdMS_TO_TICKS(100));
-
-    ESP_RETURN_ON_ERROR(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 4096), TAG,);
-    ESP_RETURN_ON_ERROR(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1), TAG,);
-    vTaskDelay(pdMS_TO_TICKS(100));
-
-    // Set duty cycle back to 0% to turn the buzzer OFF
+    vTaskDelay(delay);
     ESP_RETURN_ON_ERROR(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 0), TAG,);
     ESP_RETURN_ON_ERROR(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1), TAG,);
 
