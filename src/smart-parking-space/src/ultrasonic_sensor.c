@@ -20,7 +20,7 @@
     }
 
 #define MAX_DISTANCE_M 5.0f
-#define THRESHOLD_DELTA_M 0.005f
+#define THRESHOLD_DELTA_M 0.002f
 #define SAMPLE_COUNT 20
 
 static const ultrasonic_sensor_config_t *global_cfg;
@@ -138,7 +138,7 @@ esp_err_t ultrasonic_sensor_init(
 
     ESP_RETURN_ON_ERROR(ultrasonic_sensor_init_sensors(), TAG, "Failed to initialize ultrasonic sensors");
 
-    return xTaskCreate(ultrasonic_sensor_update, "Sensor_main", 4096, NULL, 5, NULL) == pdTRUE
+    return xTaskCreate(ultrasonic_sensor_update, "Sensor_main", 4096, NULL, tskIDLE_PRIORITY, NULL) == pdTRUE
                ? ESP_OK
                : ESP_FAIL;
 }

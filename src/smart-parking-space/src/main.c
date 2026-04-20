@@ -35,12 +35,12 @@
 #endif
 
 #define TOTAL_SPACE 3
-static uint8_t remaining_space = TOTAL_SPACE;
+static uint8_t remaining_space = 0;
 
 ultrasonic_sensor_info_t sensors[TOTAL_SPACE] = {
-    {{.trigger_pin = CONFIG_TRIGGER_GPIO, .echo_pin = CONFIG_ECHO_GPIO_1}, false, 0},
-    {{.trigger_pin = CONFIG_TRIGGER_GPIO, .echo_pin = CONFIG_ECHO_GPIO_2}, false, 0},
-    {{.trigger_pin = CONFIG_TRIGGER_GPIO, .echo_pin = CONFIG_ECHO_GPIO_3}, false, 0}
+    {{.trigger_pin = CONFIG_TRIGGER_GPIO, .echo_pin = CONFIG_ECHO_GPIO_1}, true, 0},
+    {{.trigger_pin = CONFIG_TRIGGER_GPIO, .echo_pin = CONFIG_ECHO_GPIO_2}, true, 0},
+    {{.trigger_pin = CONFIG_TRIGGER_GPIO, .echo_pin = CONFIG_ECHO_GPIO_3}, true, 0}
 };
 ultrasonic_sensor_config_t sensor_config = { .sensors = { .data = sensors, .count= TOTAL_SPACE }};
 
