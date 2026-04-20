@@ -36,7 +36,6 @@
 
 #define TOTAL_SPACE 3
 static uint8_t remaining_space = TOTAL_SPACE;
-static float remaining_space_attr = TOTAL_SPACE;
 
 ultrasonic_sensor_info_t sensors[TOTAL_SPACE] = {
     {{.trigger_pin = CONFIG_TRIGGER_GPIO, .echo_pin = CONFIG_ECHO_GPIO_1}, false, 0},
@@ -47,6 +46,8 @@ ultrasonic_sensor_info_t sensors[TOTAL_SPACE] = {
 static const char *TAG = "MAIN";
 
 static void ultrasonic_sensor_handler(const int8_t delta) {
+    float remaining_space_attr;
+
     remaining_space += delta;
 
     if (remaining_space == 0) {
@@ -135,12 +136,12 @@ static esp_err_t deferred_driver_init(void) {
         set_max_current_value();
 
         led_driver_init();
-        ESP_ERROR_CHECK(ultrasonic_sensor_init(
-                &(ultrasonic_sensor_config_t) {
-                .sensors = {sensors, countof(sensors)}
-                }, ultrasonic_sensor_handler, 1)
-        );
-        // xTaskCreate(mock_ultrasonic, "mock_ultrasonic", 4096, NULL, 5, NULL);
+        // ESP_ERROR_CHECK(ultrasonic_sensor_init(
+                // &(ultrasonic_sensor_config_t) {
+                // .sensors = {sensors, countof(sensors)}
+                // }, ultrasonic_sensor_handler, 1)
+        // );
+        xTaskCreate(mock_ultrasonic, "mock_ultrasonic", 4096, NULL, 5, NULL);
 
         is_inited = true;
     }
@@ -207,7 +208,11 @@ static void esp_zb_task(void *pvParameters) {
 
     esp_zb_ep_list_t *esp_zb_ep_list = esp_zb_ep_list_create();
 
-    esp_zb_analog_input_cluster_cfg_t analog_input_cfg = { .present_value = TOTAL_SPACE };
+    esp_zb_analog_input_cluster_cfg_t analog_input_cfg = {
+        .out_of_service = ESP_ZB_ZCL_ANALOG_INPUT_OUT_OF_SERVICE_DEFAULT_VALUE,
+        .status_flags = ESP_ZB_ZCL_ANALOG_INPUT_STATUS_FLAG_DEFAULT_VALUE,
+        .present_value = TOTAL_SPACE
+    };
     esp_zb_basic_cluster_cfg_t basic_cluster_cfg =  {
         .zcl_version = ESP_ZB_ZCL_BASIC_ZCL_VERSION_DEFAULT_VALUE,
         .power_source = ESP_ZB_ZCL_BASIC_POWER_SOURCE_DEFAULT_VALUE,
@@ -223,7 +228,13 @@ static void esp_zb_task(void *pvParameters) {
     esp_zb_attribute_list_t *esp_zb_identify_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_IDENTIFY);
 
     /* Create customized temperature sensor endpoint */
+    float max_ai_attr = TOTAL_SPACE;
+    float min_ai_attr = 0;
+    uint16_t no_units = 0x005f;
     esp_zb_attribute_list_t *analog_input_cluster = esp_zb_analog_input_cluster_create(&analog_input_cfg);
+    esp_zb_analog_input_cluster_add_attr(analog_input_cluster, ESP_ZB_ZCL_ATTR_ANALOG_INPUT_MAX_PRESENT_VALUE_ID, &max_ai_attr);
+    esp_zb_analog_input_cluster_add_attr(analog_input_cluster, ESP_ZB_ZCL_ATTR_ANALOG_INPUT_MIN_PRESENT_VALUE_ID, &min_ai_attr);
+    esp_zb_analog_input_cluster_add_attr(analog_input_cluster, ESP_ZB_ZCL_ATTR_ANALOG_INPUT_ENGINEERING_UNITS_ID, &no_units);
 
     /* create cluster lists for this endpoint */
     esp_zb_cluster_list_t *esp_zb_cluster_list = esp_zb_zcl_cluster_list_create();
@@ -253,6 +264,7 @@ static void esp_zb_task(void *pvParameters) {
         .u.send_info.max_interval = 0,
         .u.send_info.def_min_interval = 1,
         .u.send_info.def_max_interval = 0,
+        .u.send_info.delta.u8 = 1,
         .attr_id = ESP_ZB_ZCL_ATTR_ANALOG_INPUT_PRESENT_VALUE_ID,
         .manuf_code = ESP_ZB_ZCL_ATTR_NON_MANUFACTURER_SPECIFIC,
     };
