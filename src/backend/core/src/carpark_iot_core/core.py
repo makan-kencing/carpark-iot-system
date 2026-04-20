@@ -2,7 +2,7 @@ import threading
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, cast
 
@@ -72,8 +72,7 @@ class Carpark:
         self.mqtt_client.connect_async(mqtt_host, mqtt_port)
         self.mqtt_client.loop_start()
 
-        self.parking_space_counter.display(30, 30)
-
+        self.parking_space_counter.display(0, 1)
 
     def _handle_entry_gate_firebase(self, gate_id: str, event: firebase_db.Event):
         gate: MqttComponent | None = self.mqtt_components.get(gate_id)
@@ -220,6 +219,7 @@ class Carpark:
     def handle_car(self, license_plate: str) -> None:
         stmt = select(Entry) \
             .where(Entry.license_plate == license_plate) \
+            .where(Entry.timestamp < (datetime.now() - timedelta(seconds=5))) \
             .order_by(Entry.timestamp.desc()) \
             .limit(1)
 
