@@ -28,6 +28,7 @@
 #include "i2c_driver.h"
 #include "lcd_driver.h"
 #include "servo_driver.h"
+#include "managed_components/abobija__rc522/internal/rc522_helpers_internal.h"
 
 #ifdef CONFIG_SMART_GATE_EXIT
 #include "rc522_driver.h"
@@ -38,12 +39,10 @@
 #error Define ZB_ED_ROLE in idf.py menuconfig to compile light (End Device) source code.
 #endif
 
-#define NFC_ATTR_LENGTH (RC522_PICC_UID_SIZE_MAX * 2 + 2)
-
 bool gate_state = false;
 char display_text_attr[4 * 16];
 #if CONFIG_SMART_GATE_EXIT
-char nfc_id_attr[NFC_ATTR_LENGTH];
+char nfc_id_attr[RC522_PICC_UID_STR_BUFFER_SIZE_MAX + 1];
 #endif
 
 static const char *TAG = "MAIN";
@@ -55,12 +54,6 @@ static void set_gate_state(const bool state) {
 }
 
 #ifdef CONFIG_SMART_GATE_EXIT
-static void write_bytes_hex(char *str_buf, const uint8_t *bytes_buf, const size_t buf_size) {
-    for (int i = 0; i < buf_size; i++) {
-        str_buf += sprintf(str_buf, "%02X", bytes_buf[i]);
-    }
-}
-
 static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, const void *message) {
     switch (callback_id) {
         case ESP_NFC_READ:
@@ -68,25 +61,37 @@ static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, con
             if (callback_id == ESP_NFC_READ) {
                 const esp_nfc_callback_message_read_t *payload = (esp_nfc_callback_message_read_t *) message;
 
-                char current_nfc[NFC_ATTR_LENGTH];
-                current_nfc[0] = payload->picc->uid.length * 2;
-                write_bytes_hex(nfc_id_attr, payload->picc->uid.value, payload->picc->uid.length);
+                if (payload->picc->uid.length == 0) {
+                    break;
+                }
 
-                if (strcmp(current_nfc + 1, nfc_id_attr) != 0) {
-                    strlcpy(nfc_id_attr, current_nfc, NFC_ATTR_LENGTH);
+                char nfc_buf[RC522_PICC_UID_STR_BUFFER_SIZE_MAX];
+                rc522_picc_uid_to_str(&payload->picc->uid, nfc_buf, sizeof(nfc_buf));
+
+                if (strcmp(nfc_buf, nfc_id_attr + 1) != 0) {
+                    nfc_id_attr[0] = strlen(nfc_buf);
+                    strlcpy(nfc_id_attr + 1, nfc_buf, sizeof(nfc_id_attr) - 1);
 
                     buzzer_driver_pulse(pdMS_TO_TICKS(100));
+
+                    esp_zb_lock_acquire(portMAX_DELAY);
+                    esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
+                                                 HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+                                                 HA_CONTROL_NFC_ATTR, nfc_id_attr, false);
+                    zcl_utility_send_update_cmd(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, HA_CONTROL_NFC_ATTR);
+                    esp_zb_lock_release();
                 }
             } else {
                 nfc_id_attr[0] = 0;
-            }
+                nfc_id_attr[1] = 0;
 
-            esp_zb_lock_acquire(portMAX_DELAY);
-            esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
-                                         HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
-                                         HA_CONTROL_NFC_ATTR, nfc_id_attr, false);
-            zcl_utility_send_update_cmd(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, HA_CONTROL_NFC_ATTR);
-            esp_zb_lock_release();
+                esp_zb_lock_acquire(portMAX_DELAY);
+                esp_zb_zcl_set_attribute_val(HA_ESP_ENDPOINT,
+                                             HA_CONTROL_CLUSTER, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+                                             HA_CONTROL_NFC_ATTR, nfc_id_attr, false);
+                zcl_utility_send_update_cmd(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, HA_CONTROL_NFC_ATTR);
+                esp_zb_lock_release();
+            }
 
             break;
     }
