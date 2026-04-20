@@ -20,8 +20,8 @@
     }
 
 #define MAX_DISTANCE_M 5.0f
-#define THRESHOLD_DELTA_M 0.05f
-#define SAMPLE_COUNT 5
+#define THRESHOLD_DELTA_M 0.005f
+#define SAMPLE_COUNT 20
 
 static const ultrasonic_sensor_config_t *global_cfg;
 static ultrasonic_sensor_callback_t func_ptr;
@@ -38,25 +38,27 @@ static esp_err_t ultrasonic_sensor_measure_baseline(
 ) {
     size_t success_count = 0;
     float total = 0;
-    for (int i = 0; i < sample_count; i++) {
+    while (success_count < sample_count) {
         float reading;
+
         const esp_err_t res = ultrasonic_measure(sensor, max_distance, &reading);
+        vTaskDelay(pdMS_TO_TICKS(100));
 
         if (res != ESP_OK) {
-            ESP_LOGW_ULTRASONIC(i, res);
+            ESP_LOGW_ULTRASONIC(-1, res);
             continue;
         }
 
         if (reading < 0.05f) {
-            ESP_LOGW(TAG, "Sensor %d: Ignoring noise %.2f m", i, reading);
+            ESP_LOGW(TAG, "Sensor: Ignoring noise %.2f m", reading);
         }
 
         success_count++;
         total += reading;
-        ESP_LOGI(TAG, "Sensor %d: Reading %d = %.2f m", i, success_count, reading);
+        ESP_LOGI(TAG, "Sensor: Reading %d = %.2f m", success_count, reading);
     }
 
-    ESP_RETURN_ON_FALSE(success_count == 0, ESP_FAIL, TAG, "No usable reading");
+    ESP_RETURN_ON_FALSE(success_count == sample_count, ESP_FAIL, TAG, "No usable reading");
 
     *distance = total / (float) success_count;
     return ESP_OK;
@@ -94,16 +96,19 @@ static void ultrasonic_sensor_update(void *pvParameters) {
     // ReSharper disable once CppDFAEndlessLoop
     while (1) {
         int8_t delta = 0;
-        for (int i = 0; i < global_cfg->sensors.count; i++) {
+        ESP_LOGI(TAG, "Reading sensors");
+        for (int i = 0; i < 3; i++) {
             float reading;
 
             ultrasonic_sensor_info_t *info = &global_cfg->sensors.data[i];
             const ultrasonic_sensor_t *sensor = &info->sensor;
 
             ultrasonic_measure(sensor, MAX_DISTANCE_M, &reading);
+            vTaskDelay(pdMS_TO_TICKS(100));
 
-            ESP_LOGD(TAG, "Sensor %d: %.2f m (baseline: %.2f m, delta: %.2f m)",
-                     i, reading, info->baseline_distance_m, delta);
+            ESP_LOGI(TAG, "Sensor %d: %.3f m (baseline: %.3f m, delta: %.3f m, occupied: %s)",
+                     i, reading, info->baseline_distance_m, THRESHOLD_DELTA_M,
+                     reading < info->baseline_distance_m - THRESHOLD_DELTA_M ? "True" : "False");
 
             if (reading < info->baseline_distance_m - THRESHOLD_DELTA_M && !info->is_occupied) {
                 info->is_occupied = true;
@@ -118,7 +123,7 @@ static void ultrasonic_sensor_update(void *pvParameters) {
             func_ptr(delta);
         }
 
-        vTaskDelay(pdMS_TO_TICKS(interval * 1000));
+        vTaskDelay(pdMS_TO_TICKS(interval));
     }
 }
 

@@ -1,5 +1,6 @@
 #include "led_driver.h"
 
+#include <esp_check.h>
 #include <esp_log.h>
 #include <driver/gpio.h>
 
@@ -14,4 +15,11 @@ void led_driver_init() {
 
     ESP_ERROR_CHECK(gpio_set_level(CONFIG_RED_LED_GPIO, 0));
     ESP_ERROR_CHECK(gpio_set_level(CONFIG_GREEN_LED_GPIO, 1));
+}
+
+esp_err_t led_driver_set_state(const bool state) {
+    ESP_RETURN_ON_ERROR(gpio_set_level(CONFIG_GREEN_LED_GPIO, state), TAG, );
+    ESP_RETURN_ON_ERROR(gpio_set_level(CONFIG_RED_LED_GPIO, !state), TAG, );
+
+    return ESP_OK;
 }

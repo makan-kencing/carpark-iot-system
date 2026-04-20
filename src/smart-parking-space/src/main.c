@@ -42,6 +42,7 @@ ultrasonic_sensor_info_t sensors[TOTAL_SPACE] = {
     {{.trigger_pin = CONFIG_TRIGGER_GPIO, .echo_pin = CONFIG_ECHO_GPIO_2}, false, 0},
     {{.trigger_pin = CONFIG_TRIGGER_GPIO, .echo_pin = CONFIG_ECHO_GPIO_3}, false, 0}
 };
+ultrasonic_sensor_config_t sensor_config = { .sensors = { .data = sensors, .count= TOTAL_SPACE }};
 
 static const char *TAG = "MAIN";
 
@@ -53,13 +54,11 @@ static void ultrasonic_sensor_handler(const int8_t delta) {
     if (remaining_space == 0) {
         ESP_LOGI(TAG, "ALL SPACES FULL");
 
-        ESP_ERROR_CHECK(gpio_set_level(CONFIG_RED_LED_GPIO, 1));
-        ESP_ERROR_CHECK(gpio_set_level(CONFIG_GREEN_LED_GPIO, 0));
+        led_driver_set_state(false);
     } else {
         ESP_LOGI(TAG, "SPACE AVAILABLE");
 
-        ESP_ERROR_CHECK(gpio_set_level(CONFIG_RED_LED_GPIO, 0));
-        ESP_ERROR_CHECK(gpio_set_level(CONFIG_GREEN_LED_GPIO, 1));
+        led_driver_set_state(true);
     }
 
     remaining_space_attr = remaining_space;
@@ -77,71 +76,15 @@ static void ultrasonic_sensor_handler(const int8_t delta) {
     esp_zb_lock_release();
 }
 
-static void mock_ultrasonic(void *pvParameters) {
-    while (1) {
-        ESP_LOGI(TAG, "Decreasing 1");
-        ultrasonic_sensor_handler(-1);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-
-        ESP_LOGI(TAG, "Increment 1");
-        ultrasonic_sensor_handler(+1);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-
-        ESP_LOGI(TAG, "Decreasing 1");
-        ultrasonic_sensor_handler(-1);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-
-        ESP_LOGI(TAG, "Decreasing 1");
-        ultrasonic_sensor_handler(-1);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-
-        ESP_LOGI(TAG, "Decreasing 1");
-        ultrasonic_sensor_handler(-1);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-
-        ESP_LOGI(TAG, "Increment 1");
-        ultrasonic_sensor_handler(+1);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-
-        ESP_LOGI(TAG, "Increment 1");
-        ultrasonic_sensor_handler(+1);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-
-        ESP_LOGI(TAG, "Increment 1");
-        ultrasonic_sensor_handler(+1);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-}
-
-void set_max_current_value() {
-    float max_current_value = TOTAL_SPACE;
-
-    esp_zb_lock_acquire(portMAX_DELAY);
-    esp_zb_zcl_set_attribute_val(
-        HA_ESP_ENDPOINT,
-        ESP_ZB_ZCL_CLUSTER_ID_ANALOG_INPUT, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
-        ESP_ZB_ZCL_ATTR_ANALOG_INPUT_MAX_PRESENT_VALUE_ID, &max_current_value, false
-    );
-    zcl_utility_send_update_cmd(
-        HA_ESP_ENDPOINT,
-        ESP_ZB_ZCL_CLUSTER_ID_ANALOG_INPUT,
-        ESP_ZB_ZCL_ATTR_ANALOG_INPUT_MAX_PRESENT_VALUE_ID
-    );
-    esp_zb_lock_release();
-}
-
 static esp_err_t deferred_driver_init(void) {
     static bool is_inited = false;
     if (!is_inited) {
-        set_max_current_value();
+        vTaskDelay(pdMS_TO_TICKS(100));
 
         led_driver_init();
-        // ESP_ERROR_CHECK(ultrasonic_sensor_init(
-                // &(ultrasonic_sensor_config_t) {
-                // .sensors = {sensors, countof(sensors)}
-                // }, ultrasonic_sensor_handler, 1)
-        // );
-        xTaskCreate(mock_ultrasonic, "mock_ultrasonic", 4096, NULL, 5, NULL);
+
+        led_driver_set_state(false);
+        ESP_ERROR_CHECK(ultrasonic_sensor_init(&sensor_config, ultrasonic_sensor_handler, 500));
 
         is_inited = true;
     }
