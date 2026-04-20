@@ -18,14 +18,24 @@ export const definitions = [
                 cluster: "genAnalogInput",
                 attribute: "maxPresentValue",
                 description: "The total space supported by this parking sensor",
-                access: "STATE_GET"
+                access: "STATE_GET",
+                reporting: {
+                    min: "MIN",
+                    max: "MAX",
+                    change: 1
+                }
             }),
             m.numeric({
                 name: "remaining",
                 cluster: "genAnalogInput",
                 attribute: "presentValue",
                 description: "The remaining space unoccupied in this parking sensor",
-                access: "STATE_GET"
+                access: "STATE_GET",
+                reporting: {
+                    min: "MIN",
+                    max: "MAX",
+                    change: 1
+                }
             })
         ]
     }
