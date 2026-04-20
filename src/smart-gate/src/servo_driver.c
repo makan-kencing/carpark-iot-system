@@ -25,6 +25,15 @@ esp_err_t servo_driver_set_angle(uint32_t angle) {
 esp_err_t servo_driver_init(uint32_t default_angle) {
     default_angle = MIN(default_angle, SERVO_MAX_DEGREE);
 
+    const ledc_timer_config_t ledc_timer = {
+        .speed_mode       = LEDC_LOW_SPEED_MODE,
+        .timer_num        = LEDC_TIMER_0,
+        .duty_resolution  = LEDC_TIMER_13_BIT,
+        .freq_hz          = 50,
+        .clk_cfg          = LEDC_AUTO_CLK
+    };
+    ESP_RETURN_ON_ERROR(ledc_timer_config(&ledc_timer), TAG, );
+
     const ledc_channel_config_t ledc_channel = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
         .channel = LEDC_CHANNEL_0,
@@ -34,5 +43,7 @@ esp_err_t servo_driver_init(uint32_t default_angle) {
         .duty = servo_angle_to_duty(default_angle),
         .hpoint = 0
     };
-    return ledc_channel_config(&ledc_channel);
+    ESP_RETURN_ON_ERROR(ledc_channel_config(&ledc_channel), TAG, );
+
+    return ESP_OK;
 }
