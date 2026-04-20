@@ -49,12 +49,6 @@ char nfc_id_attr[NFC_ATTR_LENGTH];
 
 static const char *TAG = "MAIN";
 
-static void write_bytes_hex(char *str_buf, const uint8_t *bytes_buf, const size_t buf_size) {
-    for (int i = 0; i < buf_size; i++) {
-        str_buf += sprintf(str_buf, "%02X", bytes_buf[i]);
-    }
-}
-
 static void set_gate_state(const bool state) {
     servo_driver_set_angle(state ? 90 : 0);
     gpio_set_level(CONFIG_LED_GREEN_GPIO, state);
@@ -62,6 +56,12 @@ static void set_gate_state(const bool state) {
 }
 
 #ifdef CONFIG_SMART_GATE_EXIT
+static void write_bytes_hex(char *str_buf, const uint8_t *bytes_buf, const size_t buf_size) {
+    for (int i = 0; i < buf_size; i++) {
+        str_buf += sprintf(str_buf, "%02X", bytes_buf[i]);
+    }
+}
+
 static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, const void *message) {
     switch (callback_id) {
         case ESP_NFC_READ:
@@ -234,7 +234,7 @@ static esp_err_t zb_custom_cmd_handler(const esp_zb_zcl_custom_cluster_command_m
                 zcl_utility_send_update_cmd(HA_ESP_ENDPOINT, HA_CONTROL_CLUSTER, HA_CONTROL_DISPLAY_ATTR);
                 esp_zb_lock_release();
             }
-#if CONFIG_SMART_GATE_EXIT
+#ifdef CONFIG_SMART_GATE_EXIT
             else if (message->info.command.id == HA_CONTROL_CLEAR_NFC_CMD) {
                 nfc_id_attr[0] = 0;
 
@@ -347,7 +347,7 @@ static void esp_zb_task(void *pvParameters) {
     esp_zb_custom_cluster_add_custom_attr(cluster, HA_CONTROL_DISPLAY_ATTR, ESP_ZB_ZCL_ATTR_TYPE_CHAR_STRING,
                                           ESP_ZB_ZCL_ATTR_ACCESS_READ_WRITE | ESP_ZB_ZCL_ATTR_ACCESS_REPORTING,
                                           &display_text_attr);
-#if CONFIG_SMART_GATE_EXIT
+#ifdef CONFIG_SMART_GATE_EXIT
     esp_zb_custom_cluster_add_custom_attr(cluster, HA_CONTROL_NFC_ATTR, ESP_ZB_ZCL_ATTR_TYPE_CHAR_STRING,
                                           ESP_ZB_ZCL_ATTR_ACCESS_READ_ONLY | ESP_ZB_ZCL_ATTR_ACCESS_REPORTING,
                                           &nfc_id_attr);

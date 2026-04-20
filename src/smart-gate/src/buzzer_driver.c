@@ -7,6 +7,7 @@
 
 static const char *TAG = "BUZZER_DRIVER";
 
+#ifdef CONFIG_SMART_GATE_EXIT
 esp_err_t buzzer_driver_init() {
     // Configure the LEDC channel to attach to the GPIO pin
     const ledc_channel_config_t ledc_channel = {
@@ -41,3 +42,4 @@ esp_err_t buzzer_driver_pulse() {
 
     return ESP_OK;
 }
+#endif
