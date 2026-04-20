@@ -39,6 +39,14 @@ static void on_picc_state_changed(void *arg, esp_event_base_t base, int32_t even
 
     rc522_picc_print(picc);
 
+    if (picc->state == RC522_PICC_STATE_IDLE && event->old_state >= RC522_PICC_STATE_ACTIVE) {
+        ESP_LOGI(TAG, "Removed card");
+        func_ptr(ESP_NFC_REMOVE, &(esp_nfc_callback_message_remove_t){
+                     .picc = picc
+                 });
+        return;
+    }
+
     if (picc->state != RC522_PICC_STATE_ACTIVE) {
         ESP_LOGI(TAG, "Reading card");
         rc522_nxp_get_type(scanner, picc, &picc->type);
@@ -46,12 +54,7 @@ static void on_picc_state_changed(void *arg, esp_event_base_t base, int32_t even
         func_ptr(ESP_NFC_READ, &(esp_nfc_callback_message_read_t){
                      .picc = picc
                  });
-    }
-    else if (picc->state == RC522_PICC_STATE_IDLE && event->old_state >= RC522_PICC_STATE_ACTIVE) {
-        ESP_LOGI(TAG, "Removed card");
-        func_ptr(ESP_NFC_REMOVE, &(esp_nfc_callback_message_remove_t){
-                     .picc = picc
-                 });
+        return;
     }
 }
 
