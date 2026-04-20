@@ -1,4 +1,5 @@
 #pragma once
+#include "esp_err.h"
 
 /* LCD Configuration */
 // https://en.wikipedia.org/wiki/HD44780_(integrated_circuit)#Instruction_set
@@ -13,10 +14,10 @@
 #define LCD_CMD_INIT_4_BIT_MODE LCD_CMD_FUNCTION_SET(0, 0, 0)
 #define LCD_CMD_WRITE 0x80
 
-void lcd_driver_set_cursor(int row, int col);
+esp_err_t lcd_driver_set_cursor(int row, int col);
 
-void lcd_driver_clear(void);
+esp_err_t lcd_driver_clear();
 
-void lcd_driver_print(const char *str);
+esp_err_t lcd_driver_print(const char *str);
 
-void lcd_driver_init(void);
+esp_err_t lcd_driver_init();

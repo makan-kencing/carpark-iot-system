@@ -5,7 +5,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-const char *TAG = "BUZZER_DRIVER";
+static const char *TAG = "BUZZER_DRIVER";
 
 esp_err_t buzzer_driver_init() {
     // Configure the LEDC channel to attach to the GPIO pin

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "esp_err.h"
 #include "rc522_picc.h"
 
 typedef enum esp_nfc_callback_action_s {
@@ -17,4 +18,4 @@ typedef struct esp_nfc_callback_message_remove_s {
 
 typedef void (*esp_nfc_callback_t)(esp_nfc_callback_action_t callback_id, void* message);
 
-void rc522_driver_init(esp_nfc_callback_t cb, uint16_t poll_interval_ms);
+esp_err_t rc522_driver_init(esp_nfc_callback_t cb, uint16_t poll_interval_ms);

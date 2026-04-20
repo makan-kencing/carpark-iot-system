@@ -55,19 +55,21 @@ static void on_picc_state_changed(void *arg, esp_event_base_t base, int32_t even
     }
 }
 
-void rc522_driver_init(const esp_nfc_callback_t cb, const uint16_t poll_interval_ms) {
+esp_err_t rc522_driver_init(const esp_nfc_callback_t cb, const uint16_t poll_interval_ms) {
     func_ptr = cb;
 
-    ESP_ERROR_CHECK(rc522_spi_create(&driver_config, &driver));
-    ESP_ERROR_CHECK(rc522_driver_install(driver));
+    ESP_RETURN_ON_ERROR(rc522_spi_create(&driver_config, &driver), TAG, );
+    ESP_RETURN_ON_ERROR(rc522_driver_install(driver), TAG, );
 
     const rc522_config_t scanner_config = {
         .driver = driver,
         .poll_interval_ms = poll_interval_ms,
     };
 
-    ESP_ERROR_CHECK(rc522_create(&scanner_config, &scanner));
-    ESP_ERROR_CHECK(rc522_register_events(scanner, RC522_EVENT_PICC_STATE_CHANGED, on_picc_state_changed, NULL));
-    ESP_ERROR_CHECK(rc522_start(scanner));
+    ESP_RETURN_ON_ERROR(rc522_create(&scanner_config, &scanner), TAG, );
+    ESP_RETURN_ON_ERROR(rc522_register_events(scanner, RC522_EVENT_PICC_STATE_CHANGED, on_picc_state_changed, NULL), TAG, );
+    ESP_RETURN_ON_ERROR(rc522_start(scanner), TAG, );
+
+    return ESP_OK;
 }
 #endif

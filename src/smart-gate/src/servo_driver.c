@@ -5,7 +5,7 @@
 
 #include "servo_driver.h"
 
-const char *TAG = "SERVO_DRIVER";
+static const char *TAG = "SERVO_DRIVER";
 
 static uint32_t servo_angle_to_duty(const uint32_t angle) {
     const uint32_t pulse_width = SERVO_MIN_PULSEWIDTH_US +

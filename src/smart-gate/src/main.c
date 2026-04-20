@@ -104,15 +104,15 @@ static esp_err_t deferred_driver_init(void) {
             .freq_hz = 2000, // 2 kHz frequency
             .clk_cfg = LEDC_AUTO_CLK
         };
-        ledc_timer_config(&ledc_timer);
+        ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
 
-        led_driver_init();
-        i2c_driver_init_master();
-        lcd_driver_init();
-        servo_driver_init(0);
+        ESP_ERROR_CHECK(led_driver_init());
+        ESP_ERROR_CHECK(i2c_driver_init_master());
+        ESP_ERROR_CHECK(lcd_driver_init());
+        ESP_ERROR_CHECK(servo_driver_init(0));
 #ifdef CONFIG_SMART_GATE_EXIT
-        buzzer_driver_init();
-        rc522_driver_init((esp_nfc_callback_t) esp_app_nfc_handler, 125);
+        ESP_ERROR_CHECK(buzzer_driver_init());
+        ESP_ERROR_CHECK(rc522_driver_init((esp_nfc_callback_t) esp_app_nfc_handler, 125));
 #endif
 
         lcd_driver_clear();
