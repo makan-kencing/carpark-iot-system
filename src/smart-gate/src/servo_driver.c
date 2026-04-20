@@ -1,45 +1,38 @@
+#include "sys/param.h"
+#include "driver/ledc.h"
+#include "esp_log.h"
+#include "esp_check.h"
+
 #include "servo_driver.h"
 
-#include <sys/param.h>
+const char *TAG = "SERVO_DRIVER";
 
-#include "driver/ledc.h"
-
-#include "esp_log.h"
-
-static  uint32_t servo_angle_to_duty(const uint32_t angle) {
+static uint32_t servo_angle_to_duty(const uint32_t angle) {
     const uint32_t pulse_width = SERVO_MIN_PULSEWIDTH_US +
-        (SERVO_MAX_PULSEWIDTH_US - SERVO_MIN_PULSEWIDTH_US) * angle / SERVO_MAX_DEGREE;
+                                 (SERVO_MAX_PULSEWIDTH_US - SERVO_MIN_PULSEWIDTH_US) * angle / SERVO_MAX_DEGREE;
     return pulse_width * 8191 / SERVO_PERIOD_US;
 }
 
-void servo_driver_set_angle(uint32_t angle) {
+esp_err_t servo_driver_set_angle(uint32_t angle) {
     angle = MIN(angle, SERVO_MAX_DEGREE);
-    ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, servo_angle_to_duty(angle)));
-    ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
+
+    ESP_RETURN_ON_ERROR(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, servo_angle_to_duty(angle)), TAG, );
+    ESP_RETURN_ON_ERROR(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0), TAG, );
+
+    return ESP_OK;
 }
 
-void servo_driver_init(uint32_t default_angle) {
+esp_err_t servo_driver_init(uint32_t default_angle) {
     default_angle = MIN(default_angle, SERVO_MAX_DEGREE);
 
-    const ledc_timer_config_t ledc_timer = {
-        .speed_mode       = LEDC_MODE,
-        .timer_num        = LEDC_TIMER,
-        .duty_resolution  = LEDC_DUTY_RES,
-        .freq_hz          = LEDC_FREQUENCY,
-        .clk_cfg          = LEDC_AUTO_CLK
-    };
-    ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
-
     const ledc_channel_config_t ledc_channel = {
-        .speed_mode     = LEDC_MODE,
-        .channel        = LEDC_CHANNEL,
-        .timer_sel      = LEDC_TIMER,
-        .intr_type      = LEDC_INTR_DISABLE,
-        .gpio_num       = CONFIG_SERVO_GPIO,
-        .duty           = servo_angle_to_duty(default_angle),
-        .hpoint         = 0
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel = LEDC_CHANNEL_0,
+        .timer_sel = LEDC_TIMER_0,
+        .intr_type = LEDC_INTR_DISABLE,
+        .gpio_num = CONFIG_SERVO_GPIO,
+        .duty = servo_angle_to_duty(default_angle),
+        .hpoint = 0
     };
-    ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
+    return ledc_channel_config(&ledc_channel);
 }
-
-

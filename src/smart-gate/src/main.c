@@ -21,6 +21,7 @@
 #include "esp_err.h"
 #include <string.h>
 #include <driver/gpio.h>
+#include <driver/ledc.h>
 #include <sys/types.h>
 
 #include "zcl_utility.h"
@@ -96,6 +97,15 @@ static void esp_app_nfc_handler(const esp_nfc_callback_action_t callback_id, con
 static esp_err_t deferred_driver_init(void) {
     static bool is_inited = false;
     if (!is_inited) {
+        const ledc_timer_config_t ledc_timer = {
+            .speed_mode = LEDC_LOW_SPEED_MODE,
+            .timer_num = LEDC_TIMER_0,
+            .duty_resolution = LEDC_TIMER_13_BIT, // 13-bit resolution (0-8192)
+            .freq_hz = 2000, // 2 kHz frequency
+            .clk_cfg = LEDC_AUTO_CLK
+        };
+        ledc_timer_config(&ledc_timer);
+
         led_driver_init();
         i2c_driver_init_master();
         lcd_driver_init();

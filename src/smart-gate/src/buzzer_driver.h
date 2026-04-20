@@ -1,5 +1,6 @@
 #pragma once
+#include "esp_err.h"
 
-void buzzer_driver_init();
+esp_err_t buzzer_driver_init();
 
-void buzzer_driver_pulse();
+esp_err_t buzzer_driver_pulse();
