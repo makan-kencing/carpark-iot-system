@@ -54,8 +54,21 @@ menu "Smart Gate Configuration"
         int "I2C address of the LCD"
         default 39  # 0x27
 
+    config LED_GREEN_GPIO
+        int "Green LED GPIO number"
+        default 3
+
+    config LED_RED_GPIO
+        int "Red LED GPIO number"
+        default 2
+
     config RC522_SPICS_GPIO
         depends on SMART_GATE_EXIT
         int "SPI SPICS GPIO of the rc522 reader"
         default 21
+
+    config BUZZER_GPIO
+        depends on SMART_GATE_EXIT
+        int "Buzzer PWM GPIO number"
+        default 10
 endmenu
