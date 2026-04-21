@@ -126,7 +126,8 @@ def get_components(
         if isinstance(component, SmartGate):
             contents.append(templates.TemplateResponse(request, name="_smart_gate_component.html", context={
                 "id": component_id,
-                "component": component
+                "component": component,
+                "type": "EXIT" if component_id == carpark._exit_gate_id else "ENTRY"
             }))
         elif isinstance(component, SmartParkingSpace):
             contents.append(templates.TemplateResponse(request, name="_smart_parking_space_component.html", context={
