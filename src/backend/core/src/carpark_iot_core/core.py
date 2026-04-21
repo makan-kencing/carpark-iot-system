@@ -74,6 +74,16 @@ class Carpark:
 
         self.parking_space_counter.display(0, 1)
 
+    @property
+    def parking_spaces(self) -> tuple[int, int]:
+        total = 0
+        remaining = 0
+        for component in self.mqtt_components.values():
+            if isinstance(component, SmartParkingSpace):
+                total += component.total
+                remaining += component.remaining
+        return total, remaining
+
     def _handle_entry_gate_firebase(self, gate_id: str, event: firebase_db.Event):
         gate: MqttComponent | None = self.mqtt_components.get(gate_id)
         if gate is None:
@@ -170,12 +180,7 @@ class Carpark:
         return price
 
     def update_carpark_space_counter(self) -> None:
-        total = remaining = 0
-        for component in self.mqtt_components.values():
-            if isinstance(component, SmartParkingSpace):
-                total += component.total
-                remaining += component.remaining
-
+        total, remaining = self.parking_spaces
         self.parking_space_counter.display(total=total, remaining=remaining)
 
     def handle_nfc(self, nfc_id: bytes) -> None:
@@ -221,6 +226,9 @@ class Carpark:
             )
 
     def handle_car(self, license_plate: str) -> None:
+        if self.parking_spaces[1] == 0:
+            return
+
         stmt = select(Entry) \
             .where(Entry.license_plate == license_plate) \
             .order_by(Entry.timestamp.desc()) \
