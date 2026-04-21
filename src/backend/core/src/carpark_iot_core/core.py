@@ -221,6 +221,7 @@ class Carpark:
                           wallet_id=wallet.id, price=self.checkout.price)
             session.add(entry)
             session.commit()
+            self.checkout = None
 
             threading.Thread(
                 target=self.firebase_db.child("entry").push,
