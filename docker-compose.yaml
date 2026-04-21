@@ -20,6 +20,8 @@ services:
         volumes:
             - ./var/z2m:/app/data
             - ./config/z2m/configuration.yaml:/app/data/configuration.yaml
+            - ./src/smart-gate/z2m_converter/smart_gate.mjs:/app/data/external_converters/smart_gate.mjs
+            - ./src/smart-parking-space/z2m_converter/smart_parking_space.mjs:/app/data/external_converters/smart_parking_space.mjs
             - /run/udev:/run/udev:ro
         environment:
             TZ: ${TZ}
