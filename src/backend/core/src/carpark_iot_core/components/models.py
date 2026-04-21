@@ -123,7 +123,7 @@ class LicensePlateCamera(Component):
         self._camera.post_callback = self.draw_texts
 
         self._predictions: list[ALPRResult] = []
-        self._thread = threading.Thread(target=self.frame_loop)
+        self._thread = threading.Thread(target=self.frame_loop, daemon=True)
         self._thread.start()
 
     def check_confidence(self, result: ALPRResult) -> bool:

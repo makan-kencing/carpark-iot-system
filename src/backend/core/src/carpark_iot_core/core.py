@@ -1,16 +1,16 @@
-import threading
 import json
 import logging
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, cast
 
+from firebase_admin import db as firebase_db
 from paho.mqtt.client import Client, ConnectFlags, MQTTMessage
 from paho.mqtt.enums import CallbackAPIVersion
 from paho.mqtt.properties import Properties
 from paho.mqtt.reasoncodes import ReasonCode
-from firebase_admin import db as firebase_db
 from sqlalchemy import select
 
 from carpark_iot_core.components.models import ParkingSpaceIndicator, SmartGate, SmartParkingSpace, \
@@ -147,7 +147,8 @@ class Carpark:
                         )
                         self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}")
                         self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}/get")
-                        self.mqtt_client.publish(f"zigbee2mqtt/{friendly_name}/get", SmartParkingSpaceOutput().model_dump_json())
+                        self.mqtt_client.publish(f"zigbee2mqtt/{friendly_name}/get",
+                                                 SmartParkingSpaceOutput().model_dump_json())
             case _:
                 return
 
@@ -192,7 +193,8 @@ class Carpark:
 
             gate = cast(SmartGate, self.mqtt_components[self._exit_gate_id])
             if wallet.balance < self.checkout.price:
-                gate.display(f"Car: {self.checkout.license_plate}\nPrice: ${self.checkout.price}\nInsufficient\nbalance")
+                gate.display(
+                    f"Car: {self.checkout.license_plate}\nPrice: ${self.checkout.price}\nInsufficient\nbalance")
                 return
 
             wallet.balance -= self.checkout.price
@@ -207,14 +209,16 @@ class Carpark:
             session.add(entry)
             session.commit()
 
-            self.firebase_db.child("entry").push({
-                "timestamp": entry.timestamp.isoformat(),
-                "license_plate": entry.license_plate,
-                "gate_id": entry.gate_id,
-                "type": entry.type.name,
-                "price": str(entry.price)
-            })
-
+            threading.Thread(
+                target=self.firebase_db.child("entry").push,
+                args=({
+                          "timestamp": entry.timestamp.isoformat(),
+                          "license_plate": entry.license_plate,
+                          "gate_id": entry.gate_id,
+                          "type": entry.type.name,
+                          "price": str(entry.price)
+                      },)
+            )
 
     def handle_car(self, license_plate: str) -> None:
         stmt = select(Entry) \
@@ -232,20 +236,21 @@ class Carpark:
 
                 gate = cast(SmartGate, self.mqtt_components[self._entry_gate_id])
 
-                threading.Thread(target=gate.open_and_close,args=(5, f"Welcome\nCar: {license_plate}")).start()
+                threading.Thread(target=gate.open_and_close, args=(5, f"Welcome\nCar: {license_plate}")).start()
 
                 entry = Entry(license_plate=license_plate, gate_id=gate.id, type=Entry.EntryType.Entry)
                 session.add(entry)
                 session.commit()
 
-                print("Hello")
-                self.firebase_db.child("entry").push({
-                    "timestamp": entry.timestamp.isoformat(),
-                    "license_plate": entry.license_plate,
-                    "gate_id": entry.gate_id,
-                    "type": entry.type.name
-                })
-                print("Done")
+                threading.Thread(
+                    target=self.firebase_db.child("entry").push,
+                    args=({
+                              "timestamp": entry.timestamp.isoformat(),
+                              "license_plate": entry.license_plate,
+                              "gate_id": entry.gate_id,
+                              "type": entry.type.name
+                          },)
+                )
             else:
                 if self._exit_gate_id is None:
                     return
@@ -254,20 +259,24 @@ class Carpark:
 
                 gate = cast(SmartGate, self.mqtt_components[self._exit_gate_id])
                 if price.is_zero():
-                    threading.Thread(target=gate.open_and_close, args=(5, f"Thank you!\nCar: {last_entry.license_plate}")).start()
+                    threading.Thread(target=gate.open_and_close,
+                                     args=(5, f"Thank you!\nCar: {last_entry.license_plate}")).start()
 
                     entry = Entry(license_plate=license_plate, gate_id=gate.id, type=Entry.EntryType.Exit,
                                   price=price)
                     session.add(entry)
                     session.commit()
 
-                    self.firebase_db.child("entry").push({
-                        "timestamp": entry.timestamp.isoformat(),
-                        "license_plate": entry.license_plate,
-                        "gate_id": entry.gate_id,
-                        "type": entry.type.name,
-                        "price": str(entry.price)
-                    })
+                    threading.Thread(
+                        target=self.firebase_db.child("entry").push,
+                        args=({
+                                  "timestamp": entry.timestamp.isoformat(),
+                                  "license_plate": entry.license_plate,
+                                  "gate_id": entry.gate_id,
+                                  "type": entry.type.name,
+                                  "price": str(entry.price)
+                              },)
+                    )
                 else:
                     gate.display(f"Car: {license_plate}\nPrice: ${price}")
 
