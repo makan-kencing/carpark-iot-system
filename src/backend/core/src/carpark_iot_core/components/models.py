@@ -133,9 +133,12 @@ class LicensePlateCamera(Component):
 
     def frame_loop(self):
         while True:
+            print("Detecting")
             image = self._camera.capture_array()
             predictions: list[ALPRResult] = alpr.predict(image[:, :, 0:3])
+            print(f"{predictions = }")
             predictions = list(filter(lambda p: self.check_confidence(p) and p.ocr.text, predictions))
+            print(f"{predictions = }")
             if predictions:
                 for result in predictions:
                     for old_result in self._predictions:

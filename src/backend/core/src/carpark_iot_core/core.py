@@ -238,12 +238,14 @@ class Carpark:
                 session.add(entry)
                 session.commit()
 
+                print("Hello")
                 self.firebase_db.child("entry").push({
                     "timestamp": entry.timestamp.isoformat(),
                     "license_plate": entry.license_plate,
                     "gate_id": entry.gate_id,
                     "type": entry.type.name
                 })
+                print("Done")
             else:
                 if self._exit_gate_id is None:
                     return
