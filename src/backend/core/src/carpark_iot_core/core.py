@@ -1,6 +1,7 @@
 import json
 import logging
 import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -151,16 +152,23 @@ class Carpark:
                         self._exit_gate_id = friendly_name
                         self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}")
                     case "SPS3":
-                        self.mqtt_components[friendly_name] = SmartParkingSpace(
+                        component = SmartParkingSpace(
                             id=friendly_name,
                             _mqtt_client=self.mqtt_client
                         )
+
+                        self.mqtt_components[friendly_name] = component
                         self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}")
                         self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}/get")
-                        self.mqtt_client.publish(f"zigbee2mqtt/{friendly_name}/get",
-                                                 SmartParkingSpaceOutput().model_dump_json())
+                        threading.Thread(target=self.fetch_parking_space, args=(friendly_name,)).start()
             case _:
                 return
+
+    def fetch_parking_space(self, component_id) -> None:
+        while component_id in self.mqtt_components:
+            cast(SmartParkingSpace, self.mqtt_components[component_id]).fetch_info()
+            time.sleep(1)
+
 
     def permit_join(self, duration: int = 300) -> None:
         self.mqtt_client.publish(
