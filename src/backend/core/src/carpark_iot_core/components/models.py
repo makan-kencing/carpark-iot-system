@@ -15,7 +15,7 @@ from libcamera import controls, Transform
 from paho.mqtt.client import Client
 from picamera2 import Picamera2, MappedArray, Preview
 
-from carpark_iot_core.components.schemas import SmartGateOutput, State
+from carpark_iot_core.components.schemas import SmartGateOutput, State, SmartParkingSpaceOutput
 
 alpr = ALPR(
     detector_model="yolo-v9-t-384-license-plate-end2end",
@@ -43,6 +43,9 @@ class SmartParkingSpace(MqttComponent):
     @property
     def occupied(self) -> int:
         return self.total - self.remaining
+
+    def fetch_info(self) -> None:
+        self._mqtt_client.publish(f"zigbee2mqtt/{self.id}/get", SmartParkingSpaceOutput().model_dump_json())
 
 
 @dataclass(slots=True)
