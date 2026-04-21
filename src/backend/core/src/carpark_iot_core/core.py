@@ -299,3 +299,6 @@ class Carpark:
                     gate.display(f"Car: {license_plate}\nPrice: ${price}")
 
                     self.checkout = CheckoutStatus(license_plate, price)
+
+            time.sleep(8)
+
