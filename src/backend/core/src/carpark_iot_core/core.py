@@ -91,7 +91,7 @@ class Carpark:
             return
         gate: SmartGate
 
-        if json.loads(event.data):
+        if event.data:
             gate.open()
         else:
             gate.close()
