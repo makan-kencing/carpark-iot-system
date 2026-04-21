@@ -207,13 +207,13 @@ class Carpark:
             gate = cast(SmartGate, self.mqtt_components[self._exit_gate_id])
             if wallet.balance < self.checkout.price:
                 gate.display(
-                    f"Car: {self.checkout.license_plate}\nPrice: ${self.checkout.price}\nInsufficient\nbalance")
+                    f"Car: {self.checkout.license_plate}\nPrice: ${self.checkout.price:.2f}\nInsufficient\nbalance")
                 return
 
             wallet.balance -= self.checkout.price
             threading.Thread(target=gate.open_and_close, args=(
                 5,
-                f"Thank you!\nCar: {self.checkout.license_plate}\nPrice: RM {self.checkout.price}\nRemaining: RM {wallet.balance}"
+                f"Thank you!\nCar: {self.checkout.license_plate}\nPrice: RM {self.checkout.price:.2f}\nRemaining: RM {wallet.balance:.2f}"
             )).start()
             gate.clear_nfc()
 
@@ -296,7 +296,7 @@ class Carpark:
                               },)
                     )
                 else:
-                    gate.display(f"Car: {license_plate}\nPrice: ${price}")
+                    gate.display(f"Car: {license_plate}\nPrice: ${price:.2f}")
 
                     self.checkout = CheckoutStatus(license_plate, price)
 
