@@ -61,10 +61,10 @@ class Carpark:
         self._exit_gate_id = None
 
         self.firebase_db = firebase_db.reference("/")
-        self.firebase_db.child("gate/entry/state").listen(
-            lambda e: self._handle_entry_gate_firebase(self._entry_gate_id or "", e))
-        self.firebase_db.child("gate/exit/state").listen(
-            lambda e: self._handle_entry_gate_firebase(self._entry_gate_id or "", e))
+        threading.Thread(target=self.firebase_db.child("gate/entry/state").listen,
+                         args=(lambda e: self._handle_entry_gate_firebase(self._entry_gate_id or "", e),)).start()
+        threading.Thread(target=self.firebase_db.child("gate/exit/state").listen,
+                         args=(lambda e: self._handle_entry_gate_firebase(self._exit_gate_id or "", e),)).start()
 
         self.mqtt_client = Client(CallbackAPIVersion.VERSION2)
         self.mqtt_client.on_connect = self.on_mqtt_connect
