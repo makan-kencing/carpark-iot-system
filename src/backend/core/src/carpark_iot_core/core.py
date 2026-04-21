@@ -140,7 +140,7 @@ class Carpark:
                         )
                         self._exit_gate_id = friendly_name
                         self.mqtt_client.subscribe(f"zigbee2mqtt/{friendly_name}")
-                    case "SGS3":
+                    case "SPS3":
                         self.mqtt_components[friendly_name] = SmartParkingSpace(
                             id=friendly_name,
                             _mqtt_client=self.mqtt_client
