@@ -223,12 +223,14 @@ class Carpark:
     def handle_car(self, license_plate: str) -> None:
         stmt = select(Entry) \
             .where(Entry.license_plate == license_plate) \
-            .where(Entry.timestamp < (datetime.now() - timedelta(seconds=5))) \
             .order_by(Entry.timestamp.desc()) \
             .limit(1)
 
         with self.db.session as session:
             last_entry: Entry | None = session.scalars(stmt).one_or_none()
+
+            if last_entry is not None and (datetime.now() - last_entry.timestamp).total_seconds() < 5:
+                return
 
             if last_entry is None or last_entry.type is Entry.EntryType.Exit:
                 if self._entry_gate_id is None:

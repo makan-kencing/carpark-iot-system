@@ -147,6 +147,7 @@ class LicensePlateCamera(Component):
                     else:
                         try:
                             self.on_detect(result.ocr.text)
+                            time.sleep(5)
                         except Exception:
                             logger.exception("Exception while calling camera callback")
 
